@@ -11,11 +11,9 @@
 - 業務ルール違反を拒否できること
 - 存在しないリソースに対して適切なエラーを返せること
 - 書籍と著者の多対多関連が正しく扱えること
-
+- JSON形式不正・日付形式不正・enum不正・型不一致が500ではなく400で返ること
 
 </details>
-
-
 
 <details>
 <summary>2. テスト方針</summary>
@@ -26,20 +24,20 @@
 |---:|---|---|
 | 1 | Service層テスト | 業務ルールの正常系・異常系を確認する |
 | 2 | Controller統合テスト | APIのHTTPステータス・レスポンスを確認する |
-| 3 | Repositoryテスト | jOOQによる主要DBアクセスを確認する |
+| 3 | リクエスト形式不正テスト | `HttpMessageNotReadableException` 系の入力不正が400になることを確認する |
+| 4 | Repositoryテスト | jOOQによる主要DBアクセスを確認する |
 
 ## 2.2 方針
 
 - 業務ルールはService層テストで重点的に確認する
 - APIとしての振る舞いはController統合テストで確認する
+- JSON形式不正・日付形式不正・enum不正・型不一致はController統合テストで確認する
+- リクエスト形式不正が `500 Internal Server Error` にならないことを確認する
 - Repositoryテストは余力があれば追加する
 - すべての細かいケースを網羅するより、評価されやすい主要ケースを優先する
 - `./gradlew test` で全テストが成功する状態にする
 
-
 </details>
-
-
 
 <details>
 <summary>3. テスト対象</summary>
@@ -48,15 +46,13 @@
 |---|---|---|
 | AuthorService | 著者登録・更新・生年月日制約 | 高 |
 | BookService | 書籍登録・更新・業務ルール | 高 |
-| AuthorController | 著者APIのHTTPステータス・レスポンス | 中 |
-| BookController | 書籍APIのHTTPステータス・レスポンス | 中 |
+| AuthorController | 著者APIのHTTPステータス・レスポンス、日付形式不正 | 高 |
+| BookController | 書籍APIのHTTPステータス・レスポンス、enum不正、型不一致 | 高 |
+| ApiExceptionHandler | リクエスト形式不正時の400変換 | 高 |
 | AuthorRepository | 著者DBアクセス | 低 |
 | BookRepository | 書籍DBアクセス・join | 低 |
 
-
 </details>
-
-
 
 <details>
 <summary>4. 著者API テストケース</summary>
@@ -70,8 +66,9 @@
 | A-03 | 著者名が空白のみの場合は登録できない | 異常系 | 400を返す | 中 |
 | A-04 | 生年月日が未来日の場合は登録できない | 異常系 | 400を返す | 高 |
 | A-05 | 生年月日が当日の場合は登録できる | 正常系 | 登録できる | 中 |
-
-
+| A-10 | 生年月日が日付形式でない場合は登録できない | 異常系 | 400を返す | 高 |
+| A-11 | JSON構文不正の場合は登録できない | 異常系 | 400を返す | 高 |
+| A-12 | リクエストボディ未指定の場合は登録できない | 異常系 | 400を返す | 中 |
 
 ## 4.2 著者更新
 
@@ -81,11 +78,10 @@
 | A-07 | 存在しない著者IDを更新すると404になる | 異常系 | 404を返す | 高 |
 | A-08 | 著者名が空の場合は更新できない | 異常系 | 400を返す | 中 |
 | A-09 | 生年月日が未来日の場合は更新できない | 異常系 | 400を返す | 高 |
-
+| A-13 | authorIdが数値でない場合は400になる | 異常系 | 400を返す | 高 |
+| A-14 | 生年月日が日付形式でない場合は更新できない | 異常系 | 400を返す | 高 |
 
 </details>
-
-
 
 <details>
 <summary>5. 書籍API テストケース</summary>
@@ -104,8 +100,11 @@
 | B-08 | 存在しない著者IDを指定すると登録できない | 異常系 | 400を返す | 高 |
 | B-09 | UNPUBLISHEDの書籍を登録できる | 正常系 | 登録できる | 中 |
 | B-10 | PUBLISHEDの書籍を登録できる | 正常系 | 登録できる | 中 |
-
-
+| B-22 | publicationStatusが定義外の場合は登録できない | 異常系 | 400を返す | 高 |
+| B-23 | priceが数値でない場合は登録できない | 異常系 | 400を返す | 高 |
+| B-24 | JSON構文不正の場合は登録できない | 異常系 | 400を返す | 高 |
+| B-25 | authorIdsが未指定の場合は登録できない | 異常系 | 400を返す | 高 |
+| B-26 | authorIdsがnullの場合は登録できない | 異常系 | 400を返す | 高 |
 
 ## 5.2 書籍更新
 
@@ -122,11 +121,12 @@
 | B-19 | PUBLISHEDからUNPUBLISHEDへ更新できない | 異常系 | 400を返す | 高 |
 | B-20 | PUBLISHEDからPUBLISHEDへ更新できる | 正常系 | 更新できる | 中 |
 | B-21 | UNPUBLISHEDからUNPUBLISHEDへ更新できる | 正常系 | 更新できる | 中 |
-
+| B-27 | bookIdが数値でない場合は400になる | 異常系 | 400を返す | 高 |
+| B-28 | publicationStatusが定義外の場合は更新できない | 異常系 | 400を返す | 高 |
+| B-29 | priceが数値でない場合は更新できない | 異常系 | 400を返す | 高 |
+| B-30 | JSON構文不正の場合は更新できない | 異常系 | 400を返す | 高 |
 
 </details>
-
-
 
 <details>
 <summary>6. 著者別書籍取得API テストケース</summary>
@@ -137,14 +137,35 @@
 | AB-02 | 複数書籍が紐づく著者の書籍一覧を取得できる | 正常系 | 複数件返る | 中 |
 | AB-03 | 書籍が0件の著者では空配列を返す | 正常系 | `[]` が返る | 中 |
 | AB-04 | 存在しない著者IDを指定すると404になる | 異常系 | 404を返す | 高 |
-
+| AB-05 | authorIdが数値でない場合は400になる | 異常系 | 400を返す | 高 |
 
 </details>
 
+<details>
+<summary>7. リクエスト形式不正テストケース</summary>
 
+`HttpMessageNotReadableException` や `MethodArgumentTypeMismatchException` が想定外エラーとして500にならないことを確認する。
+
+| No | テスト内容 | 対象API例 | 想定例外 | 期待結果 | 優先度 |
+|---:|---|---|---|---|---|
+| RQ-01 | 日付形式不正で400になる | POST /authors | HttpMessageNotReadableException | 400 | 高 |
+| RQ-02 | enum不正で400になる | POST /books | HttpMessageNotReadableException | 400 | 高 |
+| RQ-03 | JSON構文不正で400になる | POST /authors または POST /books | HttpMessageNotReadableException | 400 | 高 |
+| RQ-04 | 数値項目の型不一致で400になる | POST /books | HttpMessageNotReadableException | 400 | 高 |
+| RQ-05 | リクエストボディ未指定で400になる | POST /authors または POST /books | HttpMessageNotReadableException | 400 | 中 |
+| RQ-06 | パスID型不一致で400になる | PUT /books/abc | MethodArgumentTypeMismatchException | 400 | 高 |
+
+## 確認観点
+
+- HTTPステータスが400であること
+- レスポンスが共通エラーレスポンス形式であること
+- メッセージが `Invalid request body` または `Invalid path parameter` であること
+- 500にならないこと
+
+</details>
 
 <details>
-<summary>7. 優先実装テスト</summary>
+<summary>8. 優先実装テスト</summary>
 
 まずは以下のテストを優先して実装する。
 
@@ -152,25 +173,27 @@
 |---:|---|---|
 | 1 | 著者を登録できる | 基本機能のため |
 | 2 | 未来日の生年月日で著者登録できない | 業務ルールのため |
-| 3 | 著者を更新できる | 基本機能のため |
-| 4 | 書籍を登録できる | 基本機能のため |
-| 5 | 著者なしで書籍登録できない | 重要業務ルールのため |
-| 6 | 価格がマイナスの書籍を登録できない | 重要業務ルールのため |
-| 7 | authorIds重複時に書籍登録できない | 多対多関連の不正入力防止のため |
-| 8 | 書籍を更新できる | 基本機能のため |
-| 9 | 出版済み書籍を未出版に戻せない | 重要業務ルールのため |
-| 10 | 著者に紐づく書籍一覧を取得できる | 必須APIのため |
-| 11 | 存在しない著者の書籍一覧取得で404になる | 404制御確認のため |
-
+| 3 | 日付形式不正で著者登録できない | リクエスト形式不正が500にならないことを確認するため |
+| 4 | 著者を更新できる | 基本機能のため |
+| 5 | 書籍を登録できる | 基本機能のため |
+| 6 | 著者なしで書籍登録できない | 重要業務ルールのため |
+| 7 | 価格がマイナスの書籍を登録できない | 重要業務ルールのため |
+| 8 | price型不一致で書籍登録できない | リクエスト形式不正が500にならないことを確認するため |
+| 9 | publicationStatus不正で書籍登録できない | enum不正が500にならないことを確認するため |
+| 10 | JSON構文不正で400になる | JSON不正が500にならないことを確認するため |
+| 11 | authorIds重複時に書籍登録できない | 多対多関連の不正入力防止のため |
+| 12 | 書籍を更新できる | 基本機能のため |
+| 13 | 出版済み書籍を未出版に戻せない | 重要業務ルールのため |
+| 14 | 著者に紐づく書籍一覧を取得できる | 必須APIのため |
+| 15 | 存在しない著者の書籍一覧取得で404になる | 404制御確認のため |
+| 16 | パスID型不一致で400になる | パスパラメータ不正が500にならないことを確認するため |
 
 </details>
 
-
-
 <details>
-<summary>8. テストデータ方針</summary>
+<summary>9. テストデータ方針</summary>
 
-## 8.1 著者データ例
+## 9.1 著者データ例
 
 | id | name | birthDate |
 |---:|---|---|
@@ -178,7 +201,7 @@
 | 2 | 森鴎外 | 1862-02-17 |
 | 3 | 芥川龍之介 | 1892-03-01 |
 
-## 8.2 書籍データ例
+## 9.2 書籍データ例
 
 | id | title | price | publicationStatus | authors |
 |---:|---|---:|---|---|
@@ -186,112 +209,155 @@
 | 2 | 舞姫 | 1000 | PUBLISHED | 森鴎外 |
 | 3 | 共著サンプル | 1500 | UNPUBLISHED | 夏目漱石, 森鴎外 |
 
+## 9.3 リクエスト形式不正データ例
+
+### 日付形式不正
+
+```json
+{
+  "name": "夏目漱石",
+  "birthDate": "invalid-date"
+}
+```
+
+### enum不正
+
+```json
+{
+  "title": "吾輩は猫である",
+  "price": 1200,
+  "publicationStatus": "DRAFT",
+  "authorIds": [1]
+}
+```
+
+### 型不一致
+
+```json
+{
+  "title": "吾輩は猫である",
+  "price": "abc",
+  "publicationStatus": "PUBLISHED",
+  "authorIds": [1]
+}
+```
+
+### JSON構文不正
+
+```json
+{
+  "name": "夏目漱石",
+}
+```
 
 </details>
 
-
-
 <details>
-<summary>9. Service層テスト方針</summary>
+<summary>10. Service層テスト方針</summary>
 
-## 9.1 対象
+## 10.1 対象
 
 - AuthorService
 - BookService
 
-## 9.2 確認内容
+## 10.2 確認内容
 
 - 業務ルール違反時に適切な例外が発生すること
 - 正常系で期待するレスポンスが返ること
 - Repositoryとの連携が成立すること
 
-## 9.3 補足
+## 10.3 補足
 
 実装スピードを優先する場合、Spring Boot Testで実DBを使ったServiceテストとして実装してもよい。  
 Mockを多用しすぎるより、課題規模ではDB込みで動作確認できる方が分かりやすい。
 
+なお、日付形式不正・enum不正・JSON構文不正・型不一致はDTO変換前に発生するため、Service層テストではなくController統合テストで確認する。
 
 </details>
 
-
-
 <details>
-<summary>10. Controller統合テスト方針</summary>
+<summary>11. Controller統合テスト方針</summary>
 
-## 10.1 対象
+## 11.1 対象
 
 - AuthorController
 - BookController
+- ApiExceptionHandler
 
-## 10.2 確認内容
+## 11.2 確認内容
 
 - HTTPステータスが期待どおりであること
 - レスポンスJSONが期待どおりであること
 - 共通エラーレスポンス形式で返ること
+- `HttpMessageNotReadableException` が400として返ること
+- `MethodArgumentTypeMismatchException` が400として返ること
 
-## 10.3 優先ケース
+## 11.3 優先ケース
 
 - 著者登録API 正常系
+- 著者登録API 日付形式不正
 - 書籍登録API 正常系
 - 書籍登録API 価格不正
+- 書籍登録API price型不一致
+- 書籍登録API publicationStatus不正
+- 書籍登録API JSON構文不正
 - 書籍更新API 出版状態遷移不正
 - 著者別書籍取得API 正常系
-
+- パスID型不一致
 
 </details>
 
-
-
 <details>
-<summary>11. Repositoryテスト方針</summary>
+<summary>12. Repositoryテスト方針</summary>
 
-## 11.1 対象
+## 12.1 対象
 
 - AuthorRepository
 - BookRepository
 
-## 11.2 確認内容
+## 12.2 確認内容
 
 - jOOQでinsertできること
 - jOOQでupdateできること
 - jOOQでfindByIdできること
 - joinで著者別書籍一覧を取得できること
 
-## 11.3 優先度
+## 12.3 優先度
 
 Repositoryテストは余力対応とする。  
 ただし、jOOQ利用を評価されやすくするため、著者別書籍取得のjoinクエリだけはテストしてもよい。
 
-
 </details>
 
-
-
 <details>
-<summary>12. テスト完了条件</summary>
+<summary>13. テスト完了条件</summary>
 
 以下を満たせば、今回の課題として十分なテスト品質とする。
 
 - [ ] 著者登録の正常系テストがある
 - [ ] 著者更新の正常系テストがある
 - [ ] 著者生年月日の異常系テストがある
+- [ ] 日付形式不正で400になるテストがある
 - [ ] 書籍登録の正常系テストがある
 - [ ] 書籍更新の正常系テストがある
 - [ ] 書籍価格の異常系テストがある
+- [ ] price型不一致で400になるテストがある
+- [ ] publicationStatus不正で400になるテストがある
+- [ ] JSON構文不正で400になるテストがある
 - [ ] 著者なし書籍登録の異常系テストがある
 - [ ] authorIds重複の異常系テストがある
+- [ ] authorIds未指定またはnullで400になるテストがある
 - [ ] 出版状態遷移の異常系テストがある
 - [ ] 著者別書籍取得の正常系テストがある
 - [ ] 存在しないIDの404テストがある
+- [ ] パスID型不一致で400になるテストがある
+- [ ] リクエスト形式不正が500にならないことを確認できている
 - [ ] `./gradlew test` が成功する
-
 
 </details>
 
-
-
 <details>
-<summary>13. 今回は対象外にするテスト</summary>
+<summary>14. 今回は対象外にするテスト</summary>
 
 以下は余力がなければ対象外とする。
 
@@ -303,13 +369,10 @@ Repositoryテストは余力対応とする。
 - CI上での自動テスト設定
 - mutation testing
 
-
 </details>
 
-
-
 <details>
-<summary>14. 補足</summary>
+<summary>15. 補足</summary>
 
 今回のテストでは、単なるカバレッジ率よりも、課題仕様に関わる重要な業務ルールが確認されていることを重視する。  
 特に、以下の異常系があると評価されやすい。
@@ -320,6 +383,13 @@ Repositoryテストは余力対応とする。
 - authorIdsの重複
 - 出版済みから未出版への変更
 - 未来日の生年月日
+- 日付形式不正
+- enum不正
+- JSON構文不正
+- 型不一致
+- パスID型不一致
 
+リクエスト形式不正は、業務ルール違反ではなくSpring/Jacksonの変換エラーとして発生する。  
+そのため、Controller統合テストで `HttpMessageNotReadableException` が共通例外ハンドラーにより400として返ることを確認する。
 
 </details>
