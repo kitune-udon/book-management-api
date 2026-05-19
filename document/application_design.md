@@ -5,10 +5,7 @@
 
 本ドキュメントは、書籍管理システムのバックエンドAPIにおけるアプリケーション構成、レイヤー責務、パッケージ構成、トランザクション方針を定義する。
 
-
 </details>
-
-
 
 <details>
 <summary>2. 基本方針</summary>
@@ -32,12 +29,10 @@ jOOQ / Database
 - RepositoryはjOOQを使ったDBアクセスに集中する
 - DTOはAPIの入出力専用とする
 - DB制約とService層のバリデーションを併用する
+- JSON形式不正・日付形式不正・enum不正・型不一致は共通例外ハンドラーで400に変換する
 - 小規模課題のため、DDDの過度な導入は避ける
 
-
 </details>
-
-
 
 <details>
 <summary>3. レイヤー責務</summary>
@@ -48,13 +43,10 @@ jOOQ / Database
 | Service | 業務ルール、ユースケース制御、トランザクション | AuthorService / BookService |
 | Repository | DBアクセス、jOOQ DSL実行 | AuthorRepository / BookRepository |
 | DTO | API入出力データ定義 | CreateBookRequest / BookResponse |
-| Exception | 例外定義、エラーレスポンス統一 | ApiExceptionHandler |
+| Exception | 例外定義、エラーレスポンス統一、リクエスト形式不正の400変換 | ApiExceptionHandler |
 | Model | 業務上の値定義 | PublicationStatus |
 
-
 </details>
-
-
 
 <details>
 <summary>4. パッケージ構成</summary>
@@ -94,10 +86,7 @@ src/main/kotlin/com/example/bookmanagement
     PublicationStatus.kt
 ```
 
-
 </details>
-
-
 
 <details>
 <summary>5. Controller設計</summary>
@@ -109,6 +98,7 @@ src/main/kotlin/com/example/bookmanagement
 - 著者登録APIを提供する
 - 著者更新APIを提供する
 - 著者別書籍取得APIを提供する
+- リクエストDTOを受け取り、Serviceへ処理を委譲する
 
 ### エンドポイント
 
@@ -118,14 +108,13 @@ src/main/kotlin/com/example/bookmanagement
 | PUT | `/authors/{authorId}` | AuthorService#update |
 | GET | `/authors/{authorId}/books` | BookService#findBooksByAuthorId または AuthorService#findBooks |
 
-
-
 ## 5.2 BookController
 
 ### 責務
 
 - 書籍登録APIを提供する
 - 書籍更新APIを提供する
+- リクエストDTOを受け取り、Serviceへ処理を委譲する
 
 ### エンドポイント
 
@@ -134,10 +123,17 @@ src/main/kotlin/com/example/bookmanagement
 | POST | `/books` | BookService#create |
 | PUT | `/books/{bookId}` | BookService#update |
 
+## 5.3 Controllerで扱わない責務
+
+以下はControllerでは直接扱わない。
+
+- 業務ルール判定
+- DBアクセス
+- JSON形式不正・日付形式不正・enum不正・型不一致の個別try-catch
+
+リクエスト形式不正はSpring/Jacksonの例外として発生するため、`ApiExceptionHandler` でまとめて400に変換する。
 
 </details>
-
-
 
 <details>
 <summary>6. Service設計</summary>
@@ -160,8 +156,6 @@ fun update(authorId: Long, request: UpdateAuthorRequest): AuthorResponse
 
 fun validateAuthorExists(authorId: Long)
 ```
-
-
 
 ## 6.2 BookService
 
@@ -188,10 +182,7 @@ fun update(bookId: Long, request: UpdateBookRequest): BookResponse
 fun findBooksByAuthorId(authorId: Long): List<BookSummaryResponse>
 ```
 
-
 </details>
-
-
 
 <details>
 <summary>7. Repository設計</summary>
@@ -216,8 +207,6 @@ fun findById(id: Long): AuthorRecord?
 
 fun countByIds(ids: List<Long>): Int
 ```
-
-
 
 ## 7.2 BookRepository
 
@@ -248,10 +237,7 @@ fun findAuthorsByBookId(bookId: Long): List<AuthorRecord>
 fun findBooksByAuthorId(authorId: Long): List<BookRecord>
 ```
 
-
 </details>
-
-
 
 <details>
 <summary>8. jOOQ利用方針</summary>
@@ -278,10 +264,7 @@ class AuthorRepository(
 }
 ```
 
-
 </details>
-
-
 
 <details>
 <summary>9. DTO設計方針</summary>
@@ -307,28 +290,74 @@ class AuthorRepository(
 | BookSummaryResponse | 書籍一覧用レスポンス |
 | ErrorResponse | エラーレスポンス |
 
+</details>
+
+<details>
+<summary>10. リクエスト形式不正の制御方針</summary>
+
+## 10.1 基本方針
+
+以下のリクエスト形式不正は、ControllerやServiceで個別にtry-catchせず、共通例外ハンドラーで `400 Bad Request` に変換する。
+
+| ケース | 発生想定例外 | ステータス |
+|---|---|---|
+| JSON構文不正 | HttpMessageNotReadableException | 400 |
+| 日付形式不正 | HttpMessageNotReadableException | 400 |
+| enum不正 | HttpMessageNotReadableException | 400 |
+| 型不一致 | HttpMessageNotReadableException | 400 |
+| リクエストボディ未指定 | HttpMessageNotReadableException | 400 |
+| パスパラメータ型不一致 | MethodArgumentTypeMismatchException | 400 |
+
+## 10.2 ApiExceptionHandlerの責務
+
+`ApiExceptionHandler` は、業務例外だけでなく、Spring/Jacksonのリクエスト変換エラーも共通的に扱う。
+
+必須で扱う例外は以下。
+
+```text
+BusinessRuleViolationException
+NotFoundException
+HttpMessageNotReadableException
+MethodArgumentTypeMismatchException
+Exception
+```
+
+Bean Validationを利用する場合は、以下も扱う。
+
+```text
+MethodArgumentNotValidException
+```
+
+## 10.3 Serviceで扱わないもの
+
+Service層では、以下のような「DTOとして受け取る前に失敗するエラー」は扱わない。
+
+- `birthDate: "invalid-date"`
+- `publicationStatus: "DRAFT"`
+- `price: "abc"`
+- JSON構文不正
+
+これらは `HttpMessageNotReadableException` として共通例外ハンドラーで400にする。
 
 </details>
 
-
-
 <details>
-<summary>10. トランザクション設計</summary>
+<summary>11. トランザクション設計</summary>
 
-## 10.1 トランザクションが必要な処理
+## 11.1 トランザクションが必要な処理
 
 | 処理 | 理由 |
 |---|---|
 | 書籍登録 | books登録とbook_authors登録を一体で扱うため |
 | 書籍更新 | books更新とbook_authors削除・再登録を一体で扱うため |
 
-## 10.2 実装方針
+## 11.2 実装方針
 
 - Service層の書籍登録・更新メソッドに `@Transactional` を付与する
 - 著者登録・著者更新は単一テーブル更新だが、必要に応じて `@Transactional` を付与してもよい
 - Repository層ではトランザクション境界を持たせない
 
-## 10.3 書籍登録処理の流れ
+## 11.3 書籍登録処理の流れ
 
 ```text
 1. リクエスト検証
@@ -338,7 +367,7 @@ class AuthorRepository(
 5. 登録結果を取得してレスポンス生成
 ```
 
-## 10.4 書籍更新処理の流れ
+## 11.4 書籍更新処理の流れ
 
 ```text
 1. 更新対象書籍の存在確認
@@ -351,15 +380,12 @@ class AuthorRepository(
 8. 更新結果を取得してレスポンス生成
 ```
 
-
 </details>
 
-
-
 <details>
-<summary>11. PublicationStatus設計</summary>
+<summary>12. PublicationStatus設計</summary>
 
-## 11.1 enum定義
+## 12.1 enum定義
 
 ```kotlin
 enum class PublicationStatus {
@@ -368,7 +394,7 @@ enum class PublicationStatus {
 }
 ```
 
-## 11.2 利用箇所
+## 12.2 利用箇所
 
 - CreateBookRequest
 - UpdateBookRequest
@@ -377,13 +403,15 @@ enum class PublicationStatus {
 - BookServiceの出版状態遷移チェック
 - RepositoryでDB保存時の文字列変換
 
+## 12.3 enum不正時の扱い
+
+リクエストで `DRAFT` など定義外の値が指定された場合、DTO変換時に失敗する。  
+この場合は `HttpMessageNotReadableException` として共通例外ハンドラーで `400 Bad Request` を返す。
 
 </details>
 
-
-
 <details>
-<summary>12. 実装対象外</summary>
+<summary>13. 実装対象外</summary>
 
 以下は今回のアプリケーション構成には含めない。
 
@@ -397,28 +425,31 @@ enum class PublicationStatus {
 | 本格的なログ設計 | 課題範囲外のため |
 | 本格的な監視設計 | 課題範囲外のため |
 
-
 </details>
 
-
-
 <details>
-<summary>13. 設計上の判断</summary>
+<summary>14. 設計上の判断</summary>
 
-## 13.1 シンプルな3層構成にする理由
+## 14.1 シンプルな3層構成にする理由
 
 今回の課題は小規模なバックエンドAPIであり、評価されるべきポイントは、仕様理解・DB設計・業務ルール実装・テストである。  
 そのため、過度な設計パターンを導入せず、Controller / Service / Repository の明確な責務分離を優先する。
 
-## 13.2 業務ルールをService層に集約する理由
+## 14.2 業務ルールをService層に集約する理由
 
 業務ルールをControllerやRepositoryに分散させると、見通しが悪くなる。  
 Service層に集約することで、テストしやすく、評価者にも実装意図が伝わりやすくなる。
 
-## 13.3 DB Recordを直接返さない理由
+## 14.3 DB Recordを直接返さない理由
 
 jOOQのRecordはDB構造に依存しているため、APIレスポンスとして直接返すとDB設計とAPI設計が密結合になる。  
 DTOへ変換することで、APIの入出力を明確にする。
 
+## 14.4 リクエスト形式不正を共通例外ハンドラーで扱う理由
+
+JSON形式不正・日付形式不正・enum不正・型不一致は、ControllerやServiceへ正常なDTOとして到達する前に発生する。  
+そのため、各APIで個別に処理するのではなく、`ApiExceptionHandler` で `HttpMessageNotReadableException` を必須対応し、400として統一的に返す。
+
+これにより、入力不正が想定外エラーとして500になることを防ぐ。
 
 </details>
