@@ -16,18 +16,18 @@
 
 | No | 区分 | ルール | エラー時ステータス | 実装場所 |
 |---:|---|---|---|---|
-| 1 | 著者 | 著者名は必須 | 400 | Service / Validation |
-| 2 | 著者 | 著者名は空文字不可 | 400 | Service / Validation |
-| 3 | 著者 | 生年月日は必須 | 400 | Service / Validation |
+| 1 | 著者 | 著者名は必須 | 400 | Bean Validation / Service |
+| 2 | 著者 | 著者名は空文字不可 | 400 | Bean Validation / Service |
+| 3 | 著者 | 生年月日は必須 | 400 | Bean Validation / Jackson |
 | 4 | 著者 | 生年月日は現在日以前 | 400 | Service / DB CHECK |
 | 5 | 著者 | 存在しない著者IDは更新不可 | 404 | Service |
-| 6 | 書籍 | 書籍名は必須 | 400 | Service / Validation |
-| 7 | 書籍 | 書籍名は空文字不可 | 400 | Service / Validation |
-| 8 | 書籍 | 価格は必須 | 400 | Service / Validation |
-| 9 | 書籍 | 価格は0以上 | 400 | Service / DB CHECK |
-| 10 | 書籍 | 出版状態は必須 | 400 | Service / Validation |
-| 11 | 書籍 | 出版状態は定義値のみ | 400 | enum / DB CHECK |
-| 12 | 書籍 | 書籍には1人以上の著者が必要 | 400 | Service |
+| 6 | 書籍 | 書籍名は必須 | 400 | Bean Validation / Service |
+| 7 | 書籍 | 書籍名は空文字不可 | 400 | Bean Validation / Service |
+| 8 | 書籍 | 価格は必須 | 400 | Bean Validation / Jackson |
+| 9 | 書籍 | 価格は0以上 | 400 | Bean Validation / Service / DB CHECK |
+| 10 | 書籍 | 出版状態は必須 | 400 | Bean Validation / Jackson |
+| 11 | 書籍 | 出版状態は定義値のみ | 400 | enum / DB CHECK / HttpMessageNotReadableException |
+| 12 | 書籍 | 書籍には1人以上の著者が必要 | 400 | Bean Validation / Service |
 | 13 | 書籍 | 存在しない著者IDは指定不可 | 400 | Service / FK |
 | 14 | 書籍 | authorIdsの重複は不可 | 400 | Service |
 | 15 | 書籍 | 存在しない書籍IDは更新不可 | 404 | Service |
@@ -36,7 +36,7 @@
 </details>
 
 <details>
-<summary>3. 入力形式不正と業務ルール違反の役割分担</summary>
+<summary>3. 入力形式不正・DTO基本検証・業務ルール検証の役割分担</summary>
 
 ## 3.1 基本方針
 
@@ -46,8 +46,8 @@ APIで発生するエラーは、以下のように分類する。
 |---|---|---|---|---|
 | リクエスト形式不正 | JSONや型の変換に失敗するもの | JSON構文不正、日付形式不正、enum不正、priceの型不一致 | 共通例外ハンドラー | 400 |
 | パスパラメータ不正 | パスIDの型が不正なもの | `/books/abc` | 共通例外ハンドラー | 400 |
-| 入力値不正 | DTOとして受け取れたが値が不正なもの | nameが空、priceがマイナス、authorIdsが空 | Validation / Service | 400 |
-| 業務ルール違反 | DB状態や複数項目に依存するもの | 存在しない著者ID、出版状態遷移不正 | Service | 400 |
+| DTO基本検証 | DTOとして受け取れたが基本制約に違反するもの | nameが空、priceがマイナス、authorIdsが空 | Bean Validation / Service | 400 |
+| 業務ルール違反 | DB状態や複数項目に依存するもの | 存在しない著者ID、authorIds重複、出版状態遷移不正 | Service | 400 |
 | 対象データなし | 更新・取得対象が存在しないもの | 存在しないbookId、authorId | Service | 404 |
 
 ## 3.2 `HttpMessageNotReadableException` の扱い
@@ -62,7 +62,34 @@ APIで発生するエラーは、以下のように分類する。
 
 これらが `500 Internal Server Error` になると、APIとしての入力エラー制御が不十分に見えるため、必須対応とする。
 
-## 3.3 パスパラメータ型不一致の扱い
+## 3.3 DTO基本検証の方針
+
+Kotlinの非null型だけでは、未指定・null・空文字・空配列の扱いが曖昧になりやすいため、Request DTOにはBean Validationを利用する方針とする。
+
+| 項目 | 検証内容 | 主な実装方法 |
+|---|---|---|
+| name | 必須、空文字不可 | `@NotBlank` |
+| birthDate | 必須 | `@NotNull` |
+| title | 必須、空文字不可 | `@NotBlank` |
+| price | 必須、0以上 | `@Min(0)` |
+| publicationStatus | 必須 | `@NotNull` |
+| authorIds | 必須、1件以上 | `@NotEmpty` |
+
+Bean Validationエラーは `MethodArgumentNotValidException` として共通例外ハンドラーで `400 Bad Request` に変換する。
+
+## 3.4 Service層で扱う検証
+
+以下はBean Validationではなく、Service層で明示的に検証する。
+
+| ルール | Service層で扱う理由 |
+|---|---|
+| 生年月日は現在日以前 | 現在日との比較が必要なため |
+| 存在しない著者IDは指定不可 | DB状態の確認が必要なため |
+| authorIdsの重複不可 | リスト全体の整合性確認が必要なため |
+| 出版済みから未出版へ戻せない | 更新前状態との比較が必要なため |
+| 存在しない更新対象は404 | DB状態の確認が必要なため |
+
+## 3.5 パスパラメータ型不一致の扱い
 
 `authorId` や `bookId` に数値以外が指定された場合は、共通例外ハンドラーで `400 Bad Request` に変換する。
 
@@ -81,11 +108,7 @@ GET /authors/abc/books
 
 ## 4.1 著者名必須
 
-### 内容
-
 著者登録・更新時、著者名は必須とする。
-
-### NG例
 
 ```json
 {
@@ -94,25 +117,13 @@ GET /authors/abc/books
 }
 ```
 
-### エラー
-
-```text
-400 Bad Request
-```
-
-### 実装方針
-
 - `name.isBlank()` の場合はエラーにする
 - 空文字・空白のみを不正とする
 - `name` が未指定またはnullの場合も400とする
 
 ## 4.2 生年月日は現在日以前
 
-### 内容
-
 著者の生年月日は現在日以前である必要がある。
-
-### NG例
 
 ```json
 {
@@ -121,31 +132,13 @@ GET /authors/abc/books
 }
 ```
 
-### エラー
-
-```text
-400 Bad Request
-```
-
-### 実装方針
-
 - `birthDate.isAfter(LocalDate.now())` の場合はエラーにする
 - DB側でも `CHECK (birth_date <= CURRENT_DATE)` を設定する
 - `birthDate` の形式不正は `HttpMessageNotReadableException` として共通例外ハンドラーで400にする
 
 ## 4.3 存在しない著者IDの更新不可
 
-### 内容
-
 存在しない著者IDを指定して更新しようとした場合は404を返す。
-
-### エラー
-
-```text
-404 Not Found
-```
-
-### 実装方針
 
 - 更新前にRepositoryで著者存在確認を行う
 - 見つからない場合は `NotFoundException` を投げる
@@ -157,65 +150,17 @@ GET /authors/abc/books
 
 ## 5.1 書籍名必須
 
-### 内容
-
-書籍登録・更新時、書籍名は必須とする。
-
-### NG例
-
-```json
-{
-  "title": "",
-  "price": 1200,
-  "publicationStatus": "PUBLISHED",
-  "authorIds": [1]
-}
-```
-
-### エラー
-
-```text
-400 Bad Request
-```
-
-### 実装方針
-
 - `title.isBlank()` の場合はエラーにする
 - 空文字・空白のみを不正とする
 - `title` が未指定またはnullの場合も400とする
 
 ## 5.2 価格は0以上
 
-### 内容
-
-書籍価格は0以上である必要がある。
-
-### NG例
-
-```json
-{
-  "title": "吾輩は猫である",
-  "price": -1,
-  "publicationStatus": "PUBLISHED",
-  "authorIds": [1]
-}
-```
-
-### エラー
-
-```text
-400 Bad Request
-```
-
-### 実装方針
-
 - `price < 0` の場合はエラーにする
 - DB側でも `CHECK (price >= 0)` を設定する
 - `price` の型不一致は `HttpMessageNotReadableException` として共通例外ハンドラーで400にする
 
 ## 5.3 出版状態は定義値のみ
-
-### 内容
 
 出版状態は以下の2種類のみとする。
 
@@ -224,53 +169,11 @@ GET /authors/abc/books
 | UNPUBLISHED | 未出版 |
 | PUBLISHED | 出版済み |
 
-### NG例
-
-```json
-{
-  "title": "吾輩は猫である",
-  "price": 1200,
-  "publicationStatus": "DRAFT",
-  "authorIds": [1]
-}
-```
-
-### エラー
-
-```text
-400 Bad Request
-```
-
-### 実装方針
-
 - Kotlinのenum `PublicationStatus` として扱う
 - DB側でもCHECK制約を設定する
 - enumとして変換できない値は `HttpMessageNotReadableException` として共通例外ハンドラーで400にする
 
 ## 5.4 書籍には1人以上の著者が必要
-
-### 内容
-
-書籍登録・更新時、書籍には1人以上の著者を紐づける必要がある。
-
-### NG例
-
-```json
-{
-  "title": "吾輩は猫である",
-  "price": 1200,
-  "publicationStatus": "PUBLISHED",
-  "authorIds": []
-}
-```
-
-### エラー
-
-```text
-400 Bad Request
-```
-
-### 実装方針
 
 - `authorIds.isEmpty()` の場合はエラーにする
 - `authorIds` が未指定またはnullの場合も400とする
@@ -278,75 +181,17 @@ GET /authors/abc/books
 
 ## 5.5 存在しない著者IDは指定不可
 
-### 内容
-
-書籍登録・更新時、存在しない著者IDを指定できない。
-
-### NG例
-
-```json
-{
-  "title": "吾輩は猫である",
-  "price": 1200,
-  "publicationStatus": "PUBLISHED",
-  "authorIds": [9999]
-}
-```
-
-### エラー
-
-```text
-400 Bad Request
-```
-
-### 実装方針
-
 - Service層で指定された著者ID一覧の存在確認を行う
 - 指定数と存在数が一致しない場合はエラーにする
 - DB側では外部キー制約でも不整合を防ぐ
 
 ## 5.6 authorIdsの重複不可
 
-### 内容
-
-書籍登録・更新時、`authorIds` に同じ著者IDを重複指定できない。
-
-### NG例
-
-```json
-{
-  "title": "吾輩は猫である",
-  "price": 1200,
-  "publicationStatus": "PUBLISHED",
-  "authorIds": [1, 1]
-}
-```
-
-### エラー
-
-```text
-400 Bad Request
-```
-
-### 実装方針
-
 - `authorIds.size != authorIds.toSet().size` の場合はエラーにする
 - DB側では `PRIMARY KEY (book_id, author_id)` でも重複を防ぐ
 - 今回は黙って重複除去せず、入力不備として扱う
 
 ## 5.7 存在しない書籍IDの更新不可
-
-### 内容
-
-存在しない書籍IDを指定して更新しようとした場合は404を返す。
-
-### エラー
-
-```text
-404 Not Found
-```
-
-### 実装方針
 
 - 更新前にRepositoryで書籍存在確認を行う
 - 見つからない場合は `NotFoundException` を投げる
@@ -418,6 +263,7 @@ GET /authors/abc/books
 
 - 業務ルール違反は `BusinessRuleViolationException` として扱う
 - 対象データが存在しない場合は `NotFoundException` として扱う
+- Bean Validationエラーは `MethodArgumentNotValidException` として共通例外ハンドラーで400にする
 - JSON形式不正・日付形式不正・enum不正・型不一致は `HttpMessageNotReadableException` として共通例外ハンドラーで400にする
 - パスパラメータ型不一致は共通例外ハンドラーで400にする
 - DB制約違反に頼り切らず、Service層で先に検証する
