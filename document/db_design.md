@@ -79,7 +79,7 @@ erDiagram
 | 制約名 | 内容 |
 |---|---|
 | PRIMARY KEY | id |
-| chk_authors_birth_date | birth_date <= CURRENT_DATE |
+| NOT NULL | name, birth_date, created_at, updated_at |
 
 ## 3.4 DDL案
 
@@ -89,10 +89,23 @@ CREATE TABLE authors (
   name VARCHAR(255) NOT NULL,
   birth_date DATE NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT chk_authors_birth_date CHECK (birth_date <= CURRENT_DATE)
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 ```
+
+## 3.5 生年月日制約の扱い
+
+著者の生年月日が現在日以前であることは、DBのCHECK制約ではなくService層で検証する。
+
+当初は以下のようなCHECK制約を検討していた。
+
+```sql
+CHECK (birth_date <= CURRENT_DATE)
+```
+
+ただし、`CURRENT_DATE` は実行日によって評価結果が変わる条件であり、DB制約として持たせるよりも、APIの業務ルールとしてService層で明示的に検証した方が、エラーハンドリング・テスト・実装意図が分かりやすい。
+
+そのため、DBでは `birth_date` の `NOT NULL` のみを担保し、未来日チェックはアプリケーション側の責務とする。
 
 </details>
 
@@ -210,7 +223,8 @@ CREATE INDEX idx_book_authors_author_id
 | 制約 | DB制約 | アプリケーション制約 | 理由 |
 |---|---|---|---|
 | 著者名必須 | NOT NULL | 空文字チェック | DBでは空文字までは防ぎにくいため |
-| 生年月日は現在日以前 | CHECK | Serviceでチェック | APIで分かりやすいエラーを返すため |
+| 生年月日必須 | NOT NULL | 必須チェック | DBとアプリケーションの両方で必須を担保するため |
+| 生年月日は現在日以前 | なし | Serviceでチェック | `CURRENT_DATE` を使ったDB制約より、Service層で明示的に検証した方がAPIエラー制御とテストがしやすいため |
 | 書籍名必須 | NOT NULL | 空文字チェック | DBでは空文字までは防ぎにくいため |
 | 価格は0以上 | CHECK | Serviceでチェック | DB不整合防止とAPIエラー制御の両方が必要なため |
 | 出版状態は定義値のみ | CHECK | enumでチェック | 不正な状態をDB・アプリ両方で防ぐため |
@@ -257,6 +271,7 @@ src/main/resources/db/migration/V1__create_tables.sql
 ## 9.2 管理方針
 
 - テーブル作成はFlywayで管理する
+- `authors.birth_date` には `CURRENT_DATE` を使ったCHECK制約を設定しない
 - `idx_book_authors_author_id` は初期マイグレーション `V1__create_tables.sql` に含める
 - jOOQコード生成はFlyway適用後のDBスキーマを元に行う
 - 初期構築時点ではV1に集約する
@@ -283,5 +298,6 @@ src/main/resources/db/migration/V1__create_tables.sql
 - 著者削除・書籍削除は今回のAPI対象外とする
 - 書籍と著者の関連更新では、既存の関連を削除してから再登録する方針とする
 - `book_authors.author_id` のインデックスは、著者別書籍取得APIの主要検索条件に合わせて採用する
+- `birth_date <= CURRENT_DATE` のような現在日に依存する制約はDBに持たせず、Service層で検証する
 
 </details>
