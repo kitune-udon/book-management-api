@@ -13,10 +13,7 @@
 | books | 書籍情報を管理する |
 | book_authors | 書籍と著者の多対多関連を管理する |
 
-
 </details>
-
-
 
 <details>
 <summary>2. ER概要</summary>
@@ -56,11 +53,9 @@ erDiagram
 - 1冊の書籍は複数の著者に紐づけられる
 - `book_authors` は中間テーブルとして利用する
 - `book_authors.book_id` と `book_authors.author_id` の複合主キーにより、同じ書籍と著者の組み合わせが重複登録されないようにする
-
+- 著者別書籍取得APIでは `book_authors.author_id` を検索条件にするため、`author_id` にインデックスを設定する
 
 </details>
-
-
 
 <details>
 <summary>3. authors テーブル</summary>
@@ -99,10 +94,7 @@ CREATE TABLE authors (
 );
 ```
 
-
 </details>
-
-
 
 <details>
 <summary>4. books テーブル</summary>
@@ -145,10 +137,7 @@ CREATE TABLE books (
 );
 ```
 
-
 </details>
-
-
 
 <details>
 <summary>5. book_authors テーブル</summary>
@@ -173,7 +162,13 @@ CREATE TABLE books (
 | fk_book_authors_book_id | book_id は books.id を参照 |
 | fk_book_authors_author_id | author_id は authors.id を参照 |
 
-## 5.4 DDL案
+## 5.4 インデックス
+
+| インデックス名 | 対象カラム | 用途 |
+|---|---|---|
+| idx_book_authors_author_id | author_id | 著者別書籍取得APIで、著者IDを条件に書籍を検索するため |
+
+## 5.5 DDL案
 
 ```sql
 CREATE TABLE book_authors (
@@ -184,12 +179,12 @@ CREATE TABLE book_authors (
   CONSTRAINT fk_book_authors_book_id FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE,
   CONSTRAINT fk_book_authors_author_id FOREIGN KEY (author_id) REFERENCES authors(id) ON DELETE RESTRICT
 );
+
+CREATE INDEX idx_book_authors_author_id
+  ON book_authors(author_id);
 ```
 
-
 </details>
-
-
 
 <details>
 <summary>6. テーブル関連</summary>
@@ -199,6 +194,7 @@ CREATE TABLE book_authors (
 - `authors.id` と `book_authors.author_id` で関連する
 - 著者が書籍に紐づいている場合、著者削除は制限する
 - 今回のAPIでは著者削除は実装対象外とする
+- 著者別書籍取得では `book_authors.author_id` を条件に検索する
 
 ## 6.2 books と book_authors
 
@@ -206,10 +202,7 @@ CREATE TABLE book_authors (
 - 書籍削除時は `book_authors` も削除される設計とする
 - 今回のAPIでは書籍削除は実装対象外とするが、DB整合性を考慮して `ON DELETE CASCADE` を設定する
 
-
 </details>
-
-
 
 <details>
 <summary>7. DB制約とアプリケーション制約の役割分担</summary>
@@ -225,37 +218,30 @@ CREATE TABLE book_authors (
 | 出版済みから未出版へ戻せない | なし | Serviceでチェック | 更新前状態との比較が必要なため |
 | 存在しない著者を紐づけない | FK | Serviceでチェック | DB不整合防止とAPIエラー制御の両方が必要なため |
 
-
 </details>
-
-
 
 <details>
 <summary>8. インデックス方針</summary>
 
 本課題ではデータ量が限定的な想定のため、過度なインデックス設計は行わない。
 
-ただし、以下は主キー・外部キーにより基本的な検索性能と整合性を確保する。
+ただし、今回の必須APIである著者別書籍取得では `author_id` 起点で `book_authors` を検索するため、`book_authors.author_id` のインデックスは初期マイグレーションに含める。
 
-| 対象 | 用途 |
-|---|---|
-| authors.id | 著者検索 |
-| books.id | 書籍検索 |
-| book_authors(book_id, author_id) | 書籍と著者の紐づけ一意性 |
-| book_authors.author_id | 著者別書籍取得 |
+| 対象 | 用途 | 採用判断 |
+|---|---|---|
+| authors.id | 著者検索 | 主キーとして採用 |
+| books.id | 書籍検索 | 主キーとして採用 |
+| book_authors(book_id, author_id) | 書籍と著者の紐づけ一意性 | 複合主キーとして採用 |
+| book_authors.author_id | 著者別書籍取得 | インデックスとして採用 |
 
-必要であれば、著者別書籍取得のために以下のインデックス追加を検討する。
+`idx_book_authors_author_id` は、今回の主要ユースケースに直結する検索条件であるため、過剰なインデックスではなく、最小限必要な性能・設計配慮として採用する。
 
 ```sql
-CREATE INDEX idx_book_authors_author_id ON book_authors(author_id);
+CREATE INDEX idx_book_authors_author_id
+  ON book_authors(author_id);
 ```
 
-ただし、課題規模では必須ではないため、実装時に余力があれば追加する。
-
-
 </details>
-
-
 
 <details>
 <summary>9. Flyway方針</summary>
@@ -271,14 +257,12 @@ src/main/resources/db/migration/V1__create_tables.sql
 ## 9.2 管理方針
 
 - テーブル作成はFlywayで管理する
+- `idx_book_authors_author_id` は初期マイグレーション `V1__create_tables.sql` に含める
 - jOOQコード生成はFlyway適用後のDBスキーマを元に行う
 - 初期構築時点ではV1に集約する
 - 後続変更が発生した場合のみV2以降を追加する
 
-
 </details>
-
-
 
 <details>
 <summary>10. jOOQコード生成との関係</summary>
@@ -287,11 +271,9 @@ src/main/resources/db/migration/V1__create_tables.sql
 - 作成済みDBスキーマからjOOQコードを生成する
 - Repository層ではjOOQの生成テーブルクラスを利用する
 - 生SQL文字列の多用は避ける
-
+- 著者別書籍取得では、`book_authors.author_id` を条件に `books` とjoinする
 
 </details>
-
-
 
 <details>
 <summary>11. 補足</summary>
@@ -300,6 +282,6 @@ src/main/resources/db/migration/V1__create_tables.sql
 - 更新時はアプリケーション側で `updated_at = CURRENT_TIMESTAMP` を設定する
 - 著者削除・書籍削除は今回のAPI対象外とする
 - 書籍と著者の関連更新では、既存の関連を削除してから再登録する方針とする
-
+- `book_authors.author_id` のインデックスは、著者別書籍取得APIの主要検索条件に合わせて採用する
 
 </details>
