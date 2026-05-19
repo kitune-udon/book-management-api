@@ -15,9 +15,7 @@
 | 4 | PUT | `/books/{bookId}` | 書籍を更新する |
 | 5 | GET | `/authors/{authorId}/books` | 指定著者に紐づく書籍一覧を取得する |
 
-
 </details>
-
 
 <details>
 <summary>2. 共通仕様</summary>
@@ -42,10 +40,51 @@
 }
 ```
 
+## 2.3 リクエスト形式不正時の扱い
+
+リクエストボディのJSON形式不正、日付形式不正、enum不正、型不一致は、すべて `400 Bad Request` として扱う。
+
+これは、Spring/Jacksonの変換エラーが想定外エラーとして `500 Internal Server Error` にならないよう、共通例外ハンドラーで `HttpMessageNotReadableException` を必須対応するためである。
+
+| ケース | 例 | ステータス |
+|---|---|---|
+| JSON構文不正 | `{ "name": "夏目漱石", }` | 400 |
+| 日付形式不正 | `"birthDate": "invalid-date"` | 400 |
+| enum不正 | `"publicationStatus": "DRAFT"` | 400 |
+| 型不一致 | `"price": "abc"` | 400 |
+| リクエストボディ未指定 | bodyなし | 400 |
+
+エラーレスポンス例：
+
+```json
+{
+  "status": 400,
+  "message": "Invalid request body"
+}
+```
+
+## 2.4 パスパラメータ不正時の扱い
+
+パスパラメータとして数値IDを受け取るAPIで、数値に変換できない値が指定された場合は `400 Bad Request` とする。
+
+例：
+
+```text
+PUT /authors/abc
+GET /authors/abc/books
+PUT /books/abc
+```
+
+エラーレスポンス例：
+
+```json
+{
+  "status": 400,
+  "message": "Invalid path parameter"
+}
+```
 
 </details>
-
-
 
 <details>
 <summary>3. 著者登録API</summary>
@@ -99,11 +138,11 @@ POST /authors
 | nameが空 | 400 | 著者名が不正 |
 | birthDateが未来日 | 400 | 生年月日が不正 |
 | birthDateの形式不正 | 400 | 日付形式が不正 |
-
+| リクエストボディがJSONとして不正 | 400 | リクエスト形式が不正 |
+| リクエストボディ未指定 | 400 | リクエスト形式が不正 |
+| 必須項目が未指定またはnull | 400 | 入力値が不正 |
 
 </details>
-
-
 
 <details>
 <summary>4. 著者更新API</summary>
@@ -161,14 +200,15 @@ PUT /authors/{authorId}
 | ケース | ステータス | 内容 |
 |---|---|---|
 | 指定したauthorIdが存在しない | 404 | 著者が存在しない |
+| authorIdが数値でない | 400 | パスパラメータが不正 |
 | nameが空 | 400 | 著者名が不正 |
 | birthDateが未来日 | 400 | 生年月日が不正 |
 | birthDateの形式不正 | 400 | 日付形式が不正 |
-
+| リクエストボディがJSONとして不正 | 400 | リクエスト形式が不正 |
+| リクエストボディ未指定 | 400 | リクエスト形式が不正 |
+| 必須項目が未指定またはnull | 400 | 入力値が不正 |
 
 </details>
-
-
 
 <details>
 <summary>5. 書籍登録API</summary>
@@ -234,15 +274,17 @@ POST /books
 |---|---|---|
 | titleが空 | 400 | 書籍名が不正 |
 | priceがマイナス | 400 | 価格が不正 |
+| priceの型が数値でない | 400 | 型が不正 |
 | publicationStatusが不正 | 400 | 出版状態が不正 |
 | authorIdsが空 | 400 | 書籍には1人以上の著者が必要 |
+| authorIdsが未指定またはnull | 400 | 著者ID一覧が不正 |
 | authorIdsに重複がある | 400 | 著者IDが重複している |
 | 存在しないauthorIdを指定 | 400 | 指定された著者が存在しない |
-
+| リクエストボディがJSONとして不正 | 400 | リクエスト形式が不正 |
+| リクエストボディ未指定 | 400 | リクエスト形式が不正 |
+| 必須項目が未指定またはnull | 400 | 入力値が不正 |
 
 </details>
-
-
 
 <details>
 <summary>6. 書籍更新API</summary>
@@ -313,18 +355,21 @@ PUT /books/{bookId}
 | ケース | ステータス | 内容 |
 |---|---|---|
 | 指定したbookIdが存在しない | 404 | 書籍が存在しない |
+| bookIdが数値でない | 400 | パスパラメータが不正 |
 | titleが空 | 400 | 書籍名が不正 |
 | priceがマイナス | 400 | 価格が不正 |
+| priceの型が数値でない | 400 | 型が不正 |
 | publicationStatusが不正 | 400 | 出版状態が不正 |
 | authorIdsが空 | 400 | 書籍には1人以上の著者が必要 |
+| authorIdsが未指定またはnull | 400 | 著者ID一覧が不正 |
 | authorIdsに重複がある | 400 | 著者IDが重複している |
 | 存在しないauthorIdを指定 | 400 | 指定された著者が存在しない |
 | PUBLISHEDからUNPUBLISHEDへ変更 | 400 | 出版済み書籍は未出版に戻せない |
-
+| リクエストボディがJSONとして不正 | 400 | リクエスト形式が不正 |
+| リクエストボディ未指定 | 400 | リクエスト形式が不正 |
+| 必須項目が未指定またはnull | 400 | 入力値が不正 |
 
 </details>
-
-
 
 <details>
 <summary>7. 著者別書籍取得API</summary>
@@ -375,11 +420,9 @@ GET /authors/{authorId}/books
 | ケース | ステータス | 内容 |
 |---|---|---|
 | 指定したauthorIdが存在しない | 404 | 著者が存在しない |
-
+| authorIdが数値でない | 400 | パスパラメータが不正 |
 
 </details>
-
-
 
 <details>
 <summary>8. DTO設計</summary>
@@ -437,10 +480,7 @@ data class BookSummaryResponse(
 )
 ```
 
-
 </details>
-
-
 
 <details>
 <summary>9. 補足</summary>
@@ -448,7 +488,8 @@ data class BookSummaryResponse(
 - 書籍登録・更新では、レスポンスに紐づく著者情報を含める
 - 著者別書籍取得では、著者情報は省略した書籍サマリーを返す
 - 入力値検証と業務ルール違反は400を返す
+- JSON形式不正・日付形式不正・enum不正・型不一致は `HttpMessageNotReadableException` として共通例外ハンドラーで400を返す
+- パスパラメータの型不一致は共通例外ハンドラーで400を返す
 - 存在しない更新対象は404を返す
-
 
 </details>
