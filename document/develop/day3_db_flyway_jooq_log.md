@@ -366,3 +366,25 @@ curl -i http://localhost:8080/health
   - `src/main/resources/db/migration/V1__create_tables.sql`
   - `src/main/kotlin/com/example/bookmanagement/repository/AuthorRepository.kt`
   - `document/develop/day3_db_flyway_jooq_log.md`
+- 以下のcommitを作成。
+
+```text
+67b55dc chore: setup Flyway migrations and jOOQ code generation
+```
+
+### Step 24 push
+
+- `git push origin develop` を実行。
+- 結果:
+
+```text
+0c5c712..67b55dc  develop -> develop
+```
+
+- `git log -1 --oneline --decorate` で以下を確認。
+
+```text
+67b55dc (HEAD -> develop, origin/develop) chore: setup Flyway migrations and jOOQ code generation
+```
+
+- Day 3のDB / Flyway / jOOQ構築commitが `origin/develop` に反映済みであることを確認。
