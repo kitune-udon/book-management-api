@@ -3,7 +3,9 @@ package com.example.bookmanagement.service
 import com.example.bookmanagement.dto.author.AuthorResponse
 import com.example.bookmanagement.dto.book.BookResponse
 import com.example.bookmanagement.dto.book.CreateBookRequest
+import com.example.bookmanagement.dto.book.UpdateBookRequest
 import com.example.bookmanagement.exception.BusinessRuleViolationException
+import com.example.bookmanagement.exception.NotFoundException
 import com.example.bookmanagement.jooq.tables.records.AuthorsRecord
 import com.example.bookmanagement.jooq.tables.records.BooksRecord
 import com.example.bookmanagement.model.PublicationStatus
@@ -46,6 +48,45 @@ class BookService(
 		return book.toResponse(sortedAuthors)
 	}
 
+	@Transactional
+	fun update(bookId: Long, request: UpdateBookRequest): BookResponse {
+		val currentBook = bookRepository.findById(bookId)
+			?: throw NotFoundException("Book not found: id=$bookId")
+
+		validateAuthorIds(request.authorIds)
+
+		val authors = authorRepository.findByIds(request.authorIds)
+		validateAllAuthorsExist(
+			authorIds = request.authorIds,
+			authors = authors,
+		)
+
+		validatePublicationStatusTransition(
+			currentStatus = PublicationStatus.valueOf(currentBook.publicationStatus!!),
+			requestedStatus = request.publicationStatus,
+		)
+
+		val updatedBook = bookRepository.update(
+			id = bookId,
+			title = request.title.trim(),
+			price = request.price,
+			publicationStatus = request.publicationStatus,
+		) ?: throw NotFoundException("Book not found: id=$bookId")
+
+		bookRepository.deleteBookAuthors(bookId)
+		bookRepository.insertBookAuthors(
+			bookId = bookId,
+			authorIds = request.authorIds,
+		)
+
+		val sortedAuthors = sortAuthorsByRequestOrder(
+			authorIds = request.authorIds,
+			authors = authors,
+		)
+
+		return updatedBook.toResponse(sortedAuthors)
+	}
+
 	private fun validateAuthorIds(authorIds: List<Long>) {
 		if (authorIds.isEmpty()) {
 			throw BusinessRuleViolationException("Book must have at least one author")
@@ -53,6 +94,20 @@ class BookService(
 
 		if (authorIds.size != authorIds.toSet().size) {
 			throw BusinessRuleViolationException("Author ids must not contain duplicates")
+		}
+	}
+
+	private fun validatePublicationStatusTransition(
+		currentStatus: PublicationStatus,
+		requestedStatus: PublicationStatus,
+	) {
+		if (
+			currentStatus == PublicationStatus.PUBLISHED &&
+			requestedStatus == PublicationStatus.UNPUBLISHED
+		) {
+			throw BusinessRuleViolationException(
+				"Published book cannot be changed to unpublished",
+			)
 		}
 	}
 

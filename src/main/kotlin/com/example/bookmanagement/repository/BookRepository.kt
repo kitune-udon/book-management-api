@@ -29,6 +29,34 @@ class BookRepository(
 			.fetchOne()!!
 	}
 
+	fun findById(id: Long): BooksRecord? {
+		return dsl.selectFrom(BOOKS)
+			.where(BOOKS.ID.eq(id))
+			.fetchOne()
+	}
+
+	fun update(
+		id: Long,
+		title: String,
+		price: Int,
+		publicationStatus: PublicationStatus,
+	): BooksRecord? {
+		return dsl.update(BOOKS)
+			.set(BOOKS.TITLE, title)
+			.set(BOOKS.PRICE, price)
+			.set(BOOKS.PUBLICATION_STATUS, publicationStatus.name)
+			.set(BOOKS.UPDATED_AT, LocalDateTime.now())
+			.where(BOOKS.ID.eq(id))
+			.returning()
+			.fetchOne()
+	}
+
+	fun deleteBookAuthors(bookId: Long) {
+		dsl.deleteFrom(BOOK_AUTHORS)
+			.where(BOOK_AUTHORS.BOOK_ID.eq(bookId))
+			.execute()
+	}
+
 	fun insertBookAuthors(bookId: Long, authorIds: List<Long>) {
 		if (authorIds.isEmpty()) {
 			return
