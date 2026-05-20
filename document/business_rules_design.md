@@ -19,7 +19,7 @@
 | 1 | 著者 | 著者名は必須 | 400 | Bean Validation / Service |
 | 2 | 著者 | 著者名は空文字不可 | 400 | Bean Validation / Service |
 | 3 | 著者 | 生年月日は必須 | 400 | Bean Validation / Jackson |
-| 4 | 著者 | 生年月日は現在日以前 | 400 | Service / DB CHECK |
+| 4 | 著者 | 生年月日は現在日以前 | 400 | Service |
 | 5 | 著者 | 存在しない著者IDは更新不可 | 404 | Service |
 | 6 | 書籍 | 書籍名は必須 | 400 | Bean Validation / Service |
 | 7 | 書籍 | 書籍名は空文字不可 | 400 | Bean Validation / Service |
@@ -133,7 +133,7 @@ GET /authors/abc/books
 ```
 
 - `birthDate.isAfter(LocalDate.now())` の場合はエラーにする
-- DB側でも `CHECK (birth_date <= CURRENT_DATE)` を設定する
+- DB側では `birth_date NOT NULL` のみ担保し、`CHECK (birth_date <= CURRENT_DATE)` は設定しない
 - `birthDate` の形式不正は `HttpMessageNotReadableException` として共通例外ハンドラーで400にする
 
 ## 4.3 存在しない著者IDの更新不可
