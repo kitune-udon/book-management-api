@@ -1,8 +1,15 @@
+import org.jooq.meta.jaxb.Database
+import org.jooq.meta.jaxb.Generate
+import org.jooq.meta.jaxb.Generator
+import org.jooq.meta.jaxb.Jdbc
+import org.jooq.meta.jaxb.Target
+
 plugins {
 	kotlin("jvm") version "1.9.25"
 	kotlin("plugin.spring") version "1.9.25"
 	id("org.springframework.boot") version "3.5.14"
 	id("io.spring.dependency-management") version "1.1.7"
+	id("nu.studer.jooq") version "9.0"
 }
 
 group = "com.example"
@@ -28,12 +35,19 @@ dependencies {
 	implementation("org.flywaydb:flyway-database-postgresql")
 	implementation("org.jetbrains.kotlin:kotlin-reflect")
 	runtimeOnly("org.postgresql:postgresql")
+	jooqGenerator("org.postgresql:postgresql")
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
 	testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 kotlin {
+	sourceSets {
+		main {
+			kotlin.srcDir("build/generated-src/jooq/main")
+		}
+	}
+
 	compilerOptions {
 		freeCompilerArgs.addAll("-Xjsr305=strict")
 	}
@@ -41,4 +55,49 @@ kotlin {
 
 tasks.withType<Test> {
 	useJUnitPlatform()
+}
+
+tasks.named("compileKotlin") {
+	dependsOn(tasks.named("generateJooq"))
+}
+
+jooq {
+	version.set("3.19.32")
+
+	configurations {
+		create("main") {
+			generateSchemaSourceOnCompilation.set(false)
+
+			jooqConfiguration.apply {
+				withJdbc(
+					Jdbc()
+						.withDriver("org.postgresql.Driver")
+						.withUrl("jdbc:postgresql://localhost:5432/book_management")
+						.withUser("book_user")
+						.withPassword("book_password")
+				)
+				withGenerator(
+					Generator()
+						.withName("org.jooq.codegen.KotlinGenerator")
+						.withDatabase(
+							Database()
+								.withName("org.jooq.meta.postgres.PostgresDatabase")
+								.withInputSchema("public")
+								.withExcludes("flyway_schema_history")
+						)
+						.withGenerate(
+							Generate()
+								.withPojos(false)
+								.withDaos(false)
+								.withRecords(true)
+						)
+						.withTarget(
+							Target()
+								.withPackageName("com.example.bookmanagement.jooq")
+								.withDirectory("build/generated-src/jooq/main")
+						)
+				)
+			}
+		}
+	}
 }
