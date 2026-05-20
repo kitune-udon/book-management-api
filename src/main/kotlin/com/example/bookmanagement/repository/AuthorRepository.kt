@@ -39,6 +39,16 @@ class AuthorRepository(
 			.fetchOne()
 	}
 
+	fun findByIds(ids: List<Long>): List<AuthorsRecord> {
+		if (ids.isEmpty()) {
+			return emptyList()
+		}
+
+		return dsl.selectFrom(AUTHORS)
+			.where(AUTHORS.ID.`in`(ids))
+			.fetch()
+	}
+
 	fun existsById(id: Long): Boolean {
 		return dsl.fetchExists(
 			dsl.selectOne()
