@@ -300,3 +300,25 @@ curl -i http://localhost:8080/health
 git add .
 git commit -m "chore: initialize Spring Boot Kotlin project"
 ```
+
+- コミット結果:
+  - commit: `7b29491`
+  - message: `chore: initialize Spring Boot Kotlin project`
+- コミット後の状態:
+  - `develop` が `origin/develop` より1コミット ahead
+  - working tree clean
+
+### Step 20 push
+
+- `git push origin develop` を実行。
+- 初回実行ではネットワーク制限により `Could not resolve host: github.com` で停止。
+- 権限付きで再実行し、push成功。
+- push結果:
+
+```text
+91c48b9..7b29491  develop -> develop
+```
+
+- push後の状態:
+  - `develop` は `origin/develop` と同期済み
+  - working tree clean
