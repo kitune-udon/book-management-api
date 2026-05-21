@@ -142,18 +142,17 @@
 </details>
 
 <details>
-<summary>7. リクエスト形式不正テストケース</summary>
+<summary>7. リクエスト形式不正の確認観点</summary>
 
-`HttpMessageNotReadableException` や `MethodArgumentTypeMismatchException` が想定外エラーとして500にならないことを確認する。
+リクエスト形式不正により発生する `HttpMessageNotReadableException` や `MethodArgumentTypeMismatchException` が500にならず、400として返却されることは、以下のテストケースで確認する。
 
-| No | テスト内容 | 対象API例 | 想定例外 | 期待結果 | 優先度 |
-|---:|---|---|---|---|---|
-| RQ-01 | 日付形式不正で400になる | POST /authors | HttpMessageNotReadableException | 400 | 高 |
-| RQ-02 | enum不正で400になる | POST /books | HttpMessageNotReadableException | 400 | 高 |
-| RQ-03 | JSON構文不正で400になる | POST /authors または POST /books | HttpMessageNotReadableException | 400 | 高 |
-| RQ-04 | 数値項目の型不一致で400になる | POST /books | HttpMessageNotReadableException | 400 | 高 |
-| RQ-05 | リクエストボディ未指定で400になる | POST /authors または POST /books | HttpMessageNotReadableException | 400 | 中 |
-| RQ-06 | パスID型不一致で400になる | PUT /books/abc | MethodArgumentTypeMismatchException | 400 | 高 |
+- A-10: 日付形式不正で著者登録できない
+- A-11: JSON構文不正の場合は著者登録できない
+- A-12: リクエストボディ未指定の場合は著者登録できない
+- B-22: publicationStatusが定義外の場合は書籍登録できない
+- B-23: priceが数値でない場合は書籍登録できない
+- B-24: JSON構文不正の場合は書籍登録できない
+- B-27: bookIdが数値でない場合は400になる
 
 ## 確認観点
 

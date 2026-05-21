@@ -1,42 +1,24 @@
 package com.example.bookmanagement.controller
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import org.hamcrest.Matchers.hasSize
 import org.junit.jupiter.api.Test
-import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.http.MediaType
-import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
-import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
-import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import java.time.LocalDate
 
-@SpringBootTest
-@AutoConfigureMockMvc
-class AuthorControllerTest {
-
-	@Autowired
-	private lateinit var mockMvc: MockMvc
-
-	@Autowired
-	private lateinit var objectMapper: ObjectMapper
+class AuthorControllerTest : ControllerTestSupport() {
 
 	@Test
-	fun `著者を登録できる`() {
-		mockMvc.perform(
-			post("/authors")
-				.contentType(MediaType.APPLICATION_JSON)
-				.content(
-					"""
-					{
-					  "name": "夏目漱石",
-					  "birthDate": "1867-02-09"
-					}
-					""".trimIndent(),
-				),
+	fun `A-01 著者を登録できる`() {
+		postJson(
+			"/authors",
+			"""
+			{
+			  "name": "夏目漱石",
+			  "birthDate": "1867-02-09"
+			}
+			""",
 		)
 			.andExpect(status().isCreated)
 			.andExpect(jsonPath("$.id").exists())
@@ -45,20 +27,81 @@ class AuthorControllerTest {
 	}
 
 	@Test
-	fun `著者を更新できる`() {
+	fun `A-02 著者名が空の場合は登録できない`() {
+		postJson(
+			"/authors",
+			"""
+			{
+			  "name": "",
+			  "birthDate": "1867-02-09"
+			}
+			""",
+		)
+			.andExpect(status().isBadRequest)
+			.andExpectErrorBody(400, "Author name must not be blank")
+	}
+
+	@Test
+	fun `A-03 著者名が空白のみの場合は登録できない`() {
+		postJson(
+			"/authors",
+			"""
+			{
+			  "name": "   ",
+			  "birthDate": "1867-02-09"
+			}
+			""",
+		)
+			.andExpect(status().isBadRequest)
+			.andExpectErrorBody(400, "Author name must not be blank")
+	}
+
+	@Test
+	fun `A-04 生年月日が未来日の場合は登録できない`() {
+		postJson(
+			"/authors",
+			"""
+			{
+			  "name": "未来著者",
+			  "birthDate": "2999-01-01"
+			}
+			""",
+		)
+			.andExpect(status().isBadRequest)
+			.andExpectErrorBody(400, "Author birth date must be today or past date")
+	}
+
+	@Test
+	fun `A-05 生年月日が当日の場合は登録できる`() {
+		val today = LocalDate.now()
+
+		postJson(
+			"/authors",
+			"""
+			{
+			  "name": "当日生年月日著者",
+			  "birthDate": "$today"
+			}
+			""",
+		)
+			.andExpect(status().isCreated)
+			.andExpect(jsonPath("$.id").exists())
+			.andExpect(jsonPath("$.name").value("当日生年月日著者"))
+			.andExpect(jsonPath("$.birthDate").value(today.toString()))
+	}
+
+	@Test
+	fun `A-06 著者を更新できる`() {
 		val authorId = createAuthor(name = "更新前著者")
 
-		mockMvc.perform(
-			put("/authors/$authorId")
-				.contentType(MediaType.APPLICATION_JSON)
-				.content(
-					"""
-					{
-					  "name": "更新後著者",
-					  "birthDate": "1901-01-01"
-					}
-					""".trimIndent(),
-				),
+		putJson(
+			"/authors/$authorId",
+			"""
+			{
+			  "name": "更新後著者",
+			  "birthDate": "1901-01-01"
+			}
+			""",
 		)
 			.andExpect(status().isOk)
 			.andExpect(jsonPath("$.id").value(authorId))
@@ -67,87 +110,148 @@ class AuthorControllerTest {
 	}
 
 	@Test
-	fun `著者名が空の場合は400を返す`() {
-		mockMvc.perform(
-			post("/authors")
-				.contentType(MediaType.APPLICATION_JSON)
-				.content(
-					"""
-					{
-					  "name": "",
-					  "birthDate": "1867-02-09"
-					}
-					""".trimIndent(),
-				),
-		)
-			.andExpect(status().isBadRequest)
-			.andExpect(jsonPath("$.status").value(400))
-			.andExpect(jsonPath("$.message").value("Author name must not be blank"))
-	}
-
-	@Test
-	fun `著者の生年月日が未来日の場合は400を返す`() {
-		mockMvc.perform(
-			post("/authors")
-				.contentType(MediaType.APPLICATION_JSON)
-				.content(
-					"""
-					{
-					  "name": "未来著者",
-					  "birthDate": "2999-01-01"
-					}
-					""".trimIndent(),
-				),
-		)
-			.andExpect(status().isBadRequest)
-			.andExpect(jsonPath("$.status").value(400))
-			.andExpect(jsonPath("$.message").value("Author birth date must be today or past date"))
-	}
-
-	@Test
-	fun `存在しない著者を更新する場合は404を返す`() {
+	fun `A-07 存在しない著者IDを更新すると404になる`() {
 		val authorId = Long.MAX_VALUE
 
-		mockMvc.perform(
-			put("/authors/$authorId")
-				.contentType(MediaType.APPLICATION_JSON)
-				.content(
-					"""
-					{
-					  "name": "存在しない著者",
-					  "birthDate": "1900-01-01"
-					}
-					""".trimIndent(),
-				),
+		putJson(
+			"/authors/$authorId",
+			"""
+			{
+			  "name": "存在しない著者",
+			  "birthDate": "1900-01-01"
+			}
+			""",
 		)
 			.andExpect(status().isNotFound)
-			.andExpect(jsonPath("$.status").value(404))
-			.andExpect(jsonPath("$.message").value("Author not found: id=$authorId"))
+			.andExpectErrorBody(404, "Author not found: id=$authorId")
 	}
 
 	@Test
-	fun `著者IDのパスパラメータが不正な場合は400を返す`() {
-		mockMvc.perform(
-			put("/authors/abc")
-				.contentType(MediaType.APPLICATION_JSON)
-				.content(
-					"""
-					{
-					  "name": "著者",
-					  "birthDate": "1900-01-01"
-					}
-					""".trimIndent(),
-				),
+	fun `A-08 著者名が空の場合は更新できない`() {
+		val authorId = createAuthor()
+
+		putJson(
+			"/authors/$authorId",
+			"""
+			{
+			  "name": "",
+			  "birthDate": "1900-01-01"
+			}
+			""",
 		)
 			.andExpect(status().isBadRequest)
-			.andExpect(jsonPath("$.status").value(400))
-			.andExpect(jsonPath("$.message").value("Invalid path parameter"))
+			.andExpectErrorBody(400, "Author name must not be blank")
 	}
 
 	@Test
-	fun `著者に紐づく書籍一覧を取得できる`() {
-		val authorId = createAuthor(name = "書籍あり著者A")
-		val coAuthorId = createAuthor(name = "書籍あり著者B")
+	fun `A-09 生年月日が未来日の場合は更新できない`() {
+		val authorId = createAuthor()
+
+		putJson(
+			"/authors/$authorId",
+			"""
+			{
+			  "name": "未来日更新著者",
+			  "birthDate": "2999-01-01"
+			}
+			""",
+		)
+			.andExpect(status().isBadRequest)
+			.andExpectErrorBody(400, "Author birth date must be today or past date")
+	}
+
+	@Test
+	fun `A-10 生年月日が日付形式でない場合は登録できない`() {
+		postJson(
+			"/authors",
+			"""
+			{
+			  "name": "日付不正著者",
+			  "birthDate": "invalid-date"
+			}
+			""",
+		)
+			.andExpect(status().isBadRequest)
+			.andExpectErrorBody(400, "Invalid request body")
+	}
+
+	@Test
+	fun `A-11 JSON構文不正の場合は登録できない`() {
+		postJson(
+			"/authors",
+			"""
+			{
+			  "name": "JSON不正著者",
+			}
+			""",
+		)
+			.andExpect(status().isBadRequest)
+			.andExpectErrorBody(400, "Invalid request body")
+	}
+
+	@Test
+	fun `A-12 リクエストボディ未指定の場合は登録できない`() {
+		postJsonWithoutBody("/authors")
+			.andExpect(status().isBadRequest)
+			.andExpectErrorBody(400, "Invalid request body")
+	}
+
+	@Test
+	fun `A-13 authorIdが数値でない場合は400になる`() {
+		putJson(
+			"/authors/abc",
+			"""
+			{
+			  "name": "著者",
+			  "birthDate": "1900-01-01"
+			}
+			""",
+		)
+			.andExpect(status().isBadRequest)
+			.andExpectErrorBody(400, "Invalid path parameter")
+	}
+
+	@Test
+	fun `A-14 生年月日が日付形式でない場合は更新できない`() {
+		val authorId = createAuthor()
+
+		putJson(
+			"/authors/$authorId",
+			"""
+			{
+			  "name": "日付不正更新著者",
+			  "birthDate": "invalid-date"
+			}
+			""",
+		)
+			.andExpect(status().isBadRequest)
+			.andExpectErrorBody(400, "Invalid request body")
+	}
+
+	@Test
+	fun `AB-01 著者に紐づく書籍一覧を取得できる`() {
+		val authorId = createAuthor(name = "書籍あり著者")
+
+		createBook(
+			title = "著者の書籍",
+			price = 1200,
+			publicationStatus = "PUBLISHED",
+			authorIds = listOf(authorId),
+		)
+
+		mockMvc.perform(get("/authors/$authorId/books"))
+			.andExpect(status().isOk)
+			.andExpect(jsonPath("$", hasSize<Any>(1)))
+			.andExpect(jsonPath("$[0].title").value("著者の書籍"))
+			.andExpect(jsonPath("$[0].price").value(1200))
+			.andExpect(jsonPath("$[0].publicationStatus").value("PUBLISHED"))
+			.andExpect(jsonPath("$[0].authors").doesNotExist())
+	}
+
+	@Test
+	fun `AB-02 複数書籍が紐づく著者の書籍一覧を取得できる`() {
+		val authorId = createAuthor(name = "複数書籍あり著者A")
+		val coAuthorId = createAuthor(name = "複数書籍あり著者B")
 
 		createBook(
 			title = "著者Aのみの書籍",
@@ -176,7 +280,7 @@ class AuthorControllerTest {
 	}
 
 	@Test
-	fun `著者に紐づく書籍がない場合は空配列を返す`() {
+	fun `AB-03 書籍が0件の著者では空配列を返す`() {
 		val authorId = createAuthor(name = "書籍なし著者")
 
 		mockMvc.perform(get("/authors/$authorId/books"))
@@ -185,72 +289,19 @@ class AuthorControllerTest {
 	}
 
 	@Test
-	fun `存在しない著者の書籍一覧取得は404を返す`() {
+	fun `AB-04 存在しない著者IDを指定すると404になる`() {
 		val authorId = Long.MAX_VALUE
 
 		mockMvc.perform(get("/authors/$authorId/books"))
 			.andExpect(status().isNotFound)
-			.andExpect(jsonPath("$.status").value(404))
-			.andExpect(jsonPath("$.message").value("Author not found: id=$authorId"))
+			.andExpectErrorBody(404, "Author not found: id=$authorId")
 	}
 
 	@Test
-	fun `著者別書籍取得のパスパラメータが不正な場合は400を返す`() {
+	fun `AB-05 authorIdが数値でない場合は400になる`() {
 		mockMvc.perform(get("/authors/abc/books"))
 			.andExpect(status().isBadRequest)
-			.andExpect(jsonPath("$.status").value(400))
-			.andExpect(jsonPath("$.message").value("Invalid path parameter"))
+			.andExpectErrorBody(400, "Invalid path parameter")
 	}
 
-	private fun createAuthor(
-		name: String = "テスト著者",
-		birthDate: String = "1900-01-01",
-	): Long {
-		val result = mockMvc.perform(
-			post("/authors")
-				.contentType(MediaType.APPLICATION_JSON)
-				.content(
-					"""
-					{
-					  "name": "$name",
-					  "birthDate": "$birthDate"
-					}
-					""".trimIndent(),
-				),
-		)
-			.andExpect(status().isCreated)
-			.andReturn()
-
-		return objectMapper.readTree(result.response.contentAsString)
-			.get("id")
-			.asLong()
-	}
-
-	private fun createBook(
-		title: String = "テスト書籍",
-		price: Int = 1000,
-		publicationStatus: String = "UNPUBLISHED",
-		authorIds: List<Long>,
-	): Long {
-		val result = mockMvc.perform(
-			post("/books")
-				.contentType(MediaType.APPLICATION_JSON)
-				.content(
-					"""
-					{
-					  "title": "$title",
-					  "price": $price,
-					  "publicationStatus": "$publicationStatus",
-					  "authorIds": ${objectMapper.writeValueAsString(authorIds)}
-					}
-					""".trimIndent(),
-				),
-		)
-			.andExpect(status().isCreated)
-			.andReturn()
-
-		return objectMapper.readTree(result.response.contentAsString)
-			.get("id")
-			.asLong()
-	}
 }
