@@ -12,6 +12,7 @@
 - PostgreSQL 16
 - Flyway
 - jOOQ 3.19.32
+- springdoc-openapi / Swagger UI
 - Gradle Wrapper
 
 ## アプリケーション構成
@@ -113,6 +114,23 @@ jOOQ生成コードは `build/generated-src/jooq/main` に出力されます。
 ```bash
 ./gradlew test
 ```
+
+## Swagger UI / OpenAPI
+
+アプリケーション起動後、以下のURLからSwagger UIを確認できます。
+
+```text
+http://localhost:8080/swagger-ui.html
+```
+
+OpenAPI JSONは以下から確認できます。
+
+```text
+http://localhost:8080/v3/api-docs
+```
+
+Swagger UIでは、実装済みAPIのパス、HTTPメソッド、リクエスト/レスポンス構造を確認できます。
+詳細な業務ルールやエラー方針は、本READMEの「主な業務ルール」「エラーレスポンス」「実装上の判断」を参照してください。
 
 ## API仕様
 
@@ -298,6 +316,7 @@ curl -i http://localhost:8080/authors/{authorId}/books
 - 書籍登録・更新と著者関連の登録・更新は同一トランザクションで処理しています。
 - `book_authors.author_id` にインデックスを付与し、著者別書籍取得時の検索を考慮しています。
 - 著者別書籍取得APIでは、一覧用途の `BookSummaryResponse` を使い、各書籍に著者一覧は含めません。
+- Swagger UIはAPI確認性向上のために導入し、詳細な業務ルール・エラー仕様はREADMEと設計書で補足しています。
 
 ## 対象外としたこと
 
