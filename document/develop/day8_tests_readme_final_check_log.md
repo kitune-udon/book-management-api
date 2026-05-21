@@ -307,3 +307,47 @@
   - `src/test/kotlin/com/example/bookmanagement/controller/BookControllerTest.kt`
 - commit対象外:
   - `document/develop/作業手順/` 配下の作業手順書。
+
+### Step 20 Git差分確認
+
+- `git status --short --untracked-files=all` を実行。
+  - 結果: 提出対象ファイルのみをcommit対象として確認。
+  - `document/develop/作業手順/` 配下の作業手順書は未追跡のまま残し、commit対象外とした。
+- `git diff --check` を実行。
+  - 結果: 指摘なし。
+- `build/generated-src/jooq` / `.gradle` / `build` / `.idea` がGit差分に含まれていないことを確認。
+
+### Step 21 commit
+
+- 以下のcommitを作成。
+  - `ef3c0ed test: add API tests and update README`
+- commit内容:
+  - Controller統合テスト追加。
+  - README整備。
+  - Flyway Gradle Plugin設定追加。
+  - 設計書と実装方針の整合修正。
+  - Day8作業メモ追加。
+
+### Step 22 push
+
+- `git push origin develop` を実行。
+  - 結果: `develop -> develop`
+
+### Step 23 最終提出前チェック
+
+- `git status --short --untracked-files=all` を実行。
+  - 結果: 未追跡の作業手順書のみ残っていることを確認。
+- `git log -3 --oneline --decorate` を実行。
+  - 結果: 直近commitがDay8本体対応のcommitであることを確認。
+- `git ls-files | rg '(^build/|^\\.gradle/|^\\.idea/)'` を実行。
+  - 結果: 該当なし。
+- `docker compose up -d` を実行。
+  - 結果: PostgreSQLコンテナは起動済み。
+- `docker exec book-management-postgres pg_isready -U book_user -d book_management` を実行。
+  - 結果: `/var/run/postgresql:5432 - accepting connections`
+- `./gradlew clean generateJooq build` を実行。
+  - 結果: `BUILD SUCCESSFUL`
+- `./gradlew test` を実行。
+  - 結果: `BUILD SUCCESSFUL`
+- 補足:
+  - 本Step23の記録追記は、最終チェックログ更新用のdocs commitに含める。
