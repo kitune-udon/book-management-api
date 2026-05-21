@@ -4,6 +4,9 @@
 
 書籍と著者を管理するためのREST APIです。
 
+<details>
+<summary>技術スタック</summary>
+
 ## 技術スタック
 
 - Kotlin 1.9.25
@@ -15,6 +18,11 @@
 - springdoc-openapi / Swagger UI
 - Gradle Wrapper
 
+</details>
+
+<details>
+<summary>アプリケーション構成</summary>
+
 ## アプリケーション構成
 
 - `controller`: HTTPリクエストを受け取り、入力値検証後にServiceへ処理を委譲します。
@@ -23,6 +31,11 @@
 - `dto`: APIのリクエスト・レスポンス形式を定義します。
 - `exception`: 共通エラーレスポンスへの変換を担当します。
 - `src/main/resources/db/migration`: FlywayマイグレーションSQLを配置します。
+
+</details>
+
+<details>
+<summary>セットアップ</summary>
 
 ## セットアップ
 
@@ -59,6 +72,11 @@ DBが接続可能になるまで待機:
 ```bash
 until docker exec book-management-postgres pg_isready -U book_user -d book_management; do sleep 1; done
 ```
+
+</details>
+
+<details>
+<summary>起動手順</summary>
 
 ## 起動手順
 
@@ -99,6 +117,22 @@ curl -i http://localhost:8080/health
 }
 ```
 
+### セットアップから起動まで一括実行
+
+以下のスクリプトで、DB起動、DB接続待機、ビルド・テスト、アプリケーション起動、ヘルスチェック確認までをまとめて実行できます。
+
+```bash
+./scripts/setup-and-run.sh
+```
+
+起動後はアプリケーションプロセスがフォアグラウンドで実行されます。
+終了する場合は `Ctrl+C` を押してください。
+
+</details>
+
+<details>
+<summary>jOOQコード生成</summary>
+
 ## jOOQコード生成
 
 ```bash
@@ -109,11 +143,42 @@ jOOQ生成コードは `build/generated-src/jooq/main` に出力されます。
 このディレクトリはビルド時に生成するため、Git管理対象外です。
 クリーンなDBから生成する場合も、`generateJooq` 実行前にFlywayマイグレーションが自動で適用されます。
 
+</details>
+
+<details>
+<summary>テスト実行</summary>
+
 ## テスト実行
 
 ```bash
 ./gradlew test
 ```
+
+### テスト内容
+
+Controller統合テストを中心に、APIとしてのHTTPステータス、レスポンス形式、Validation、例外ハンドリング、業務ルールを確認しています。
+テストで登録・更新したデータはテストメソッド終了時にrollbackされるため、ローカルDBにテストデータは残りません。
+
+| テストクラス | 主な確認内容 |
+|---|---|
+| `AuthorControllerTest` | 著者登録・更新、著者別書籍取得、著者APIの入力不正・404制御 |
+| `BookControllerTest` | 書籍登録・更新、著者関連の更新、多対多関連、出版状態の業務ルール、書籍APIの入力不正・404制御 |
+
+主なテスト観点:
+
+- 正常に登録・更新・取得できること
+- Validationエラーが400として返ること
+- 存在しない著者・書籍に対して404を返すこと
+- 書籍と著者の多対多関連を正しく登録・更新できること
+- 出版済み書籍を未出版へ戻せないこと
+- JSON形式不正、日付形式不正、enum不正、型不一致、パスID型不一致が500にならず400として返ること
+
+詳細なテストケースは [`document/test_design.md`](document/test_design.md) を参照してください。
+
+</details>
+
+<details>
+<summary>Swagger UI / OpenAPI</summary>
 
 ## Swagger UI / OpenAPI
 
@@ -131,6 +196,11 @@ http://localhost:8080/v3/api-docs
 
 Swagger UIでは、実装済みAPIのパス、HTTPメソッド、リクエスト/レスポンス構造を確認できます。
 詳細な業務ルールやエラー方針は、本READMEの「主な業務ルール」「エラーレスポンス」「実装上の判断」を参照してください。
+
+</details>
+
+<details>
+<summary>API仕様</summary>
 
 ## API仕様
 
@@ -273,6 +343,11 @@ curl -i http://localhost:8080/authors/{authorId}/books
 ]
 ```
 
+</details>
+
+<details>
+<summary>主な業務ルール</summary>
+
 ## 主な業務ルール
 
 - 著者の生年月日は現在日以前のみ許可します。
@@ -282,6 +357,11 @@ curl -i http://localhost:8080/authors/{authorId}/books
 - 存在しない著者IDを指定して書籍を登録・更新することはできません。
 - 出版済みの書籍を未出版へ戻すことはできません。
 - 著者が存在するが紐づく書籍が0件の場合、著者別書籍取得APIは空配列を返します。
+
+</details>
+
+<details>
+<summary>エラーレスポンス</summary>
 
 ## エラーレスポンス
 
@@ -305,6 +385,11 @@ curl -i http://localhost:8080/authors/{authorId}/books
 | 更新対象の著者・書籍が存在しない | 404 |
 | 著者別書籍取得で指定著者が存在しない | 404 |
 
+</details>
+
+<details>
+<summary>実装上の判断</summary>
+
 ## 実装上の判断
 
 - DBマイグレーションにはFlywayを利用しています。
@@ -318,6 +403,11 @@ curl -i http://localhost:8080/authors/{authorId}/books
 - 著者別書籍取得APIでは、一覧用途の `BookSummaryResponse` を使い、各書籍に著者一覧は含めません。
 - Swagger UIはAPI確認性向上のために導入し、詳細な業務ルール・エラー仕様はREADMEと設計書で補足しています。
 
+</details>
+
+<details>
+<summary>対象外としたこと</summary>
+
 ## 対象外としたこと
 
 - 認証・認可
@@ -328,3 +418,23 @@ curl -i http://localhost:8080/authors/{authorId}/books
 - 書籍詳細API
 - 著者詳細API
 - ページング・検索条件指定
+
+</details>
+
+<details>
+<summary>関連ドキュメント</summary>
+
+## 関連ドキュメント
+
+設計資料は `document/` 配下に格納しています。
+
+| ファイル | 内容 |
+|---|---|
+| [`document/api_design.md`](document/api_design.md) | API仕様、リクエスト・レスポンス、エラー仕様 |
+| [`document/application_design.md`](document/application_design.md) | アプリケーション構成、レイヤ構成、責務分担 |
+| [`document/business_rules_design.md`](document/business_rules_design.md) | 業務ルール、Validation、制約方針 |
+| [`document/db_design.md`](document/db_design.md) | テーブル設計、ER、インデックス方針 |
+| [`document/error_design.md`](document/error_design.md) | エラーハンドリング、共通エラーレスポンス方針 |
+| [`document/test_design.md`](document/test_design.md) | テスト方針、テストケース、確認観点 |
+
+</details>
