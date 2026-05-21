@@ -2,6 +2,7 @@ package com.example.bookmanagement.service
 
 import com.example.bookmanagement.dto.author.AuthorResponse
 import com.example.bookmanagement.dto.book.BookResponse
+import com.example.bookmanagement.dto.book.BookSummaryResponse
 import com.example.bookmanagement.dto.book.CreateBookRequest
 import com.example.bookmanagement.dto.book.UpdateBookRequest
 import com.example.bookmanagement.exception.BusinessRuleViolationException
@@ -87,6 +88,16 @@ class BookService(
 		return updatedBook.toResponse(sortedAuthors)
 	}
 
+	@Transactional(readOnly = true)
+	fun findBooksByAuthorId(authorId: Long): List<BookSummaryResponse> {
+		if (!authorRepository.existsById(authorId)) {
+			throw NotFoundException("Author not found: id=$authorId")
+		}
+
+		return bookRepository.findBooksByAuthorId(authorId)
+			.map { it.toSummaryResponse() }
+	}
+
 	private fun validateAuthorIds(authorIds: List<Long>) {
 		if (authorIds.isEmpty()) {
 			throw BusinessRuleViolationException("Book must have at least one author")
@@ -135,6 +146,15 @@ class BookService(
 			price = price!!,
 			publicationStatus = PublicationStatus.valueOf(publicationStatus!!),
 			authors = authors.map { it.toResponse() },
+		)
+	}
+
+	private fun BooksRecord.toSummaryResponse(): BookSummaryResponse {
+		return BookSummaryResponse(
+			id = id!!,
+			title = title!!,
+			price = price!!,
+			publicationStatus = PublicationStatus.valueOf(publicationStatus!!),
 		)
 	}
 

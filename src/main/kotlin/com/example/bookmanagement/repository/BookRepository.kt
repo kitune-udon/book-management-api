@@ -35,6 +35,23 @@ class BookRepository(
 			.fetchOne()
 	}
 
+	fun findBooksByAuthorId(authorId: Long): List<BooksRecord> {
+		return dsl.select(
+			BOOKS.ID,
+			BOOKS.TITLE,
+			BOOKS.PRICE,
+			BOOKS.PUBLICATION_STATUS,
+			BOOKS.CREATED_AT,
+			BOOKS.UPDATED_AT,
+		)
+			.from(BOOKS)
+			.join(BOOK_AUTHORS)
+			.on(BOOK_AUTHORS.BOOK_ID.eq(BOOKS.ID))
+			.where(BOOK_AUTHORS.AUTHOR_ID.eq(authorId))
+			.orderBy(BOOKS.ID.asc())
+			.fetchInto(BooksRecord::class.java)
+	}
+
 	fun update(
 		id: Long,
 		title: String,
