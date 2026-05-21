@@ -4,11 +4,22 @@ import org.jooq.meta.jaxb.Generator
 import org.jooq.meta.jaxb.Jdbc
 import org.jooq.meta.jaxb.Target
 
+buildscript {
+	repositories {
+		mavenCentral()
+	}
+	dependencies {
+		classpath("org.flywaydb:flyway-database-postgresql:11.7.2")
+		classpath("org.postgresql:postgresql:42.7.10")
+	}
+}
+
 plugins {
 	kotlin("jvm") version "1.9.25"
 	kotlin("plugin.spring") version "1.9.25"
 	id("org.springframework.boot") version "3.5.14"
 	id("io.spring.dependency-management") version "1.1.7"
+	id("org.flywaydb.flyway") version "11.7.2"
 	id("nu.studer.jooq") version "9.0"
 }
 
@@ -61,6 +72,14 @@ tasks.named("compileKotlin") {
 	dependsOn(tasks.named("generateJooq"))
 }
 
+flyway {
+	url = "jdbc:postgresql://localhost:5432/book_management"
+	user = "book_user"
+	password = "book_password"
+	locations = arrayOf("filesystem:src/main/resources/db/migration")
+	configurations = arrayOf("runtimeClasspath")
+}
+
 jooq {
 	version.set("3.19.32")
 
@@ -100,4 +119,8 @@ jooq {
 			}
 		}
 	}
+}
+
+tasks.named("generateJooq") {
+	dependsOn(tasks.named("flywayMigrate"))
 }

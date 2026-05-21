@@ -254,13 +254,13 @@ class ApiExceptionHandler {
 
 | API | ケース | ステータス | 例外 |
 |---|---|---|---|
-| POST /authors | nameが空 | 400 | BusinessRuleViolationException / MethodArgumentNotValidException |
+| POST /authors | nameが空 | 400 | MethodArgumentNotValidException |
 | POST /authors | birthDateが未来日 | 400 | BusinessRuleViolationException |
 | POST /authors | birthDateの形式不正 | 400 | HttpMessageNotReadableException |
 | POST /authors | JSON構文不正 | 400 | HttpMessageNotReadableException |
 | PUT /authors/{authorId} | authorIdが存在しない | 404 | NotFoundException |
 | PUT /authors/{authorId} | authorIdが数値でない | 400 | MethodArgumentTypeMismatchException |
-| PUT /authors/{authorId} | nameが空 | 400 | BusinessRuleViolationException / MethodArgumentNotValidException |
+| PUT /authors/{authorId} | nameが空 | 400 | MethodArgumentNotValidException |
 | PUT /authors/{authorId} | birthDateが未来日 | 400 | BusinessRuleViolationException |
 | PUT /authors/{authorId} | birthDateの形式不正 | 400 | HttpMessageNotReadableException |
 | PUT /authors/{authorId} | JSON構文不正 | 400 | HttpMessageNotReadableException |
@@ -269,23 +269,23 @@ class ApiExceptionHandler {
 
 | API | ケース | ステータス | 例外 |
 |---|---|---|---|
-| POST /books | titleが空 | 400 | BusinessRuleViolationException / MethodArgumentNotValidException |
-| POST /books | priceがマイナス | 400 | BusinessRuleViolationException / MethodArgumentNotValidException |
+| POST /books | titleが空 | 400 | MethodArgumentNotValidException |
+| POST /books | priceがマイナス | 400 | MethodArgumentNotValidException |
 | POST /books | priceの型不一致 | 400 | HttpMessageNotReadableException |
 | POST /books | publicationStatusが不正 | 400 | HttpMessageNotReadableException |
 | POST /books | JSON構文不正 | 400 | HttpMessageNotReadableException |
-| POST /books | authorIdsが空 | 400 | BusinessRuleViolationException / MethodArgumentNotValidException |
+| POST /books | authorIdsが空 | 400 | MethodArgumentNotValidException |
 | POST /books | authorIdsが未指定またはnull | 400 | HttpMessageNotReadableException / MethodArgumentNotValidException |
 | POST /books | authorIdsに重複がある | 400 | BusinessRuleViolationException |
 | POST /books | 存在しないauthorIdを指定 | 400 | BusinessRuleViolationException |
 | PUT /books/{bookId} | bookIdが存在しない | 404 | NotFoundException |
 | PUT /books/{bookId} | bookIdが数値でない | 400 | MethodArgumentTypeMismatchException |
-| PUT /books/{bookId} | titleが空 | 400 | BusinessRuleViolationException / MethodArgumentNotValidException |
-| PUT /books/{bookId} | priceがマイナス | 400 | BusinessRuleViolationException / MethodArgumentNotValidException |
+| PUT /books/{bookId} | titleが空 | 400 | MethodArgumentNotValidException |
+| PUT /books/{bookId} | priceがマイナス | 400 | MethodArgumentNotValidException |
 | PUT /books/{bookId} | priceの型不一致 | 400 | HttpMessageNotReadableException |
 | PUT /books/{bookId} | publicationStatusが不正 | 400 | HttpMessageNotReadableException |
 | PUT /books/{bookId} | JSON構文不正 | 400 | HttpMessageNotReadableException |
-| PUT /books/{bookId} | authorIdsが空 | 400 | BusinessRuleViolationException / MethodArgumentNotValidException |
+| PUT /books/{bookId} | authorIdsが空 | 400 | MethodArgumentNotValidException |
 | PUT /books/{bookId} | authorIdsが未指定またはnull | 400 | HttpMessageNotReadableException / MethodArgumentNotValidException |
 | PUT /books/{bookId} | authorIdsに重複がある | 400 | BusinessRuleViolationException |
 | PUT /books/{bookId} | 存在しないauthorIdを指定 | 400 | BusinessRuleViolationException |

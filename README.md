@@ -1,2 +1,311 @@
-# book-management-api
-A backend API for managing books and authors, built with Kotlin, Spring Boot, jOOQ, PostgreSQL, and Flyway.
+# Book Management API
+
+## 概要
+
+書籍と著者を管理するためのREST APIです。
+
+## 技術スタック
+
+- Kotlin 1.9.25
+- Java 17
+- Spring Boot 3.5.14
+- PostgreSQL 16
+- Flyway
+- jOOQ 3.19.32
+- Gradle Wrapper
+
+## アプリケーション構成
+
+- `controller`: HTTPリクエストを受け取り、入力値検証後にServiceへ処理を委譲します。
+- `service`: 業務ルール検証とトランザクション境界を担当します。
+- `repository`: jOOQを使ったDBアクセスを担当します。
+- `dto`: APIのリクエスト・レスポンス形式を定義します。
+- `exception`: 共通エラーレスポンスへの変換を担当します。
+- `src/main/resources/db/migration`: FlywayマイグレーションSQLを配置します。
+
+## セットアップ
+
+### 前提
+
+- Java 17
+- Docker / Docker Compose
+
+Gradle Wrapperを同梱しているため、ローカルGradleの事前インストールは不要です。
+
+### DB起動
+
+```bash
+docker compose up -d
+```
+
+PostgreSQLは以下の設定で起動します。
+
+| 項目 | 値 |
+|---|---|
+| DB | `book_management` |
+| User | `book_user` |
+| Password | `book_password` |
+| Port | `5432` |
+
+起動確認:
+
+```bash
+docker compose ps
+```
+
+DBが接続可能になるまで待機:
+
+```bash
+until docker exec book-management-postgres pg_isready -U book_user -d book_management; do sleep 1; done
+```
+
+## 起動手順
+
+このプロジェクトでは、jOOQコード生成時にPostgreSQLへ接続します。
+`generateJooq` / `build` / `test` / `bootRun` を実行する前に、`docker compose up -d` でDBを起動してください。
+`generateJooq` は `flywayMigrate` に依存しているため、ビルド時にFlywayマイグレーションが自動適用されてからjOOQコード生成が実行されます。
+
+### jOOQコード生成・ビルド
+
+```bash
+./gradlew clean generateJooq build
+```
+
+必要に応じてFlywayの状態確認や手動マイグレーションも実行できます。
+
+```bash
+./gradlew flywayInfo
+./gradlew flywayMigrate
+```
+
+### アプリケーション起動
+
+```bash
+./gradlew bootRun
+```
+
+### ヘルスチェック
+
+```bash
+curl -i http://localhost:8080/health
+```
+
+期待レスポンス:
+
+```json
+{
+  "status": "UP"
+}
+```
+
+## jOOQコード生成
+
+```bash
+./gradlew generateJooq
+```
+
+jOOQ生成コードは `build/generated-src/jooq/main` に出力されます。
+このディレクトリはビルド時に生成するため、Git管理対象外です。
+クリーンなDBから生成する場合も、`generateJooq` 実行前にFlywayマイグレーションが自動で適用されます。
+
+## テスト実行
+
+```bash
+./gradlew test
+```
+
+## API仕様
+
+### API一覧
+
+| メソッド | パス | 概要 |
+|---|---|---|
+| POST | `/authors` | 著者を登録する |
+| PUT | `/authors/{authorId}` | 著者を更新する |
+| POST | `/books` | 書籍を登録する |
+| PUT | `/books/{bookId}` | 書籍を更新する |
+| GET | `/authors/{authorId}/books` | 指定した著者に紐づく書籍一覧を取得する |
+
+### 著者登録API
+
+```bash
+curl -i -X POST http://localhost:8080/authors \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "夏目漱石",
+    "birthDate": "1867-02-09"
+  }'
+```
+
+正常時は `201 Created` を返します。
+
+```json
+{
+  "id": 1,
+  "name": "夏目漱石",
+  "birthDate": "1867-02-09"
+}
+```
+
+### 著者更新API
+
+```bash
+curl -i -X PUT http://localhost:8080/authors/{authorId} \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "夏目漱石 更新",
+    "birthDate": "1867-02-09"
+  }'
+```
+
+`{authorId}` には実在する著者IDを指定してください。
+正常時は `200 OK` を返します。
+
+```json
+{
+  "id": 1,
+  "name": "夏目漱石 更新",
+  "birthDate": "1867-02-09"
+}
+```
+
+### 書籍登録API
+
+```bash
+curl -i -X POST http://localhost:8080/books \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "吾輩は猫である",
+    "price": 1200,
+    "publicationStatus": "PUBLISHED",
+    "authorIds": [<AUTHOR_ID>]
+  }'
+```
+
+`authorIds` には実在する著者IDを指定してください。
+正常時は `201 Created` を返します。
+
+```json
+{
+  "id": 1,
+  "title": "吾輩は猫である",
+  "price": 1200,
+  "publicationStatus": "PUBLISHED",
+  "authors": [
+    {
+      "id": 1,
+      "name": "夏目漱石",
+      "birthDate": "1867-02-09"
+    }
+  ]
+}
+```
+
+### 書籍更新API
+
+```bash
+curl -i -X PUT http://localhost:8080/books/{bookId} \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "吾輩は猫である 改訂版",
+    "price": 1500,
+    "publicationStatus": "PUBLISHED",
+    "authorIds": [<AUTHOR_ID>]
+  }'
+```
+
+`{bookId}` には実在する書籍IDを指定してください。
+`authorIds` には実在する著者IDを指定してください。
+正常時は `200 OK` を返します。
+
+```json
+{
+  "id": 1,
+  "title": "吾輩は猫である 改訂版",
+  "price": 1500,
+  "publicationStatus": "PUBLISHED",
+  "authors": [
+    {
+      "id": 1,
+      "name": "夏目漱石",
+      "birthDate": "1867-02-09"
+    }
+  ]
+}
+```
+
+### 著者別書籍取得API
+
+```bash
+curl -i http://localhost:8080/authors/{authorId}/books
+```
+
+`{authorId}` には実在する著者IDを指定してください。
+正常時は `200 OK` を返します。
+著者は存在するが紐づく書籍が0件の場合は、`200 OK` で空配列を返します。
+
+```json
+[
+  {
+    "id": 1,
+    "title": "吾輩は猫である",
+    "price": 1200,
+    "publicationStatus": "PUBLISHED"
+  }
+]
+```
+
+## 主な業務ルール
+
+- 著者の生年月日は現在日以前のみ許可します。
+- 書籍価格は0以上のみ許可します。
+- 書籍には1人以上の著者が必要です。
+- 書籍に同じ著者を重複して紐づけることはできません。
+- 存在しない著者IDを指定して書籍を登録・更新することはできません。
+- 出版済みの書籍を未出版へ戻すことはできません。
+- 著者が存在するが紐づく書籍が0件の場合、著者別書籍取得APIは空配列を返します。
+
+## エラーレスポンス
+
+エラー時は以下の形式でレスポンスを返します。
+
+```json
+{
+  "status": 400,
+  "message": "Invalid request body"
+}
+```
+
+代表例:
+
+| ケース | ステータス |
+|---|---:|
+| 入力値のValidationエラー | 400 |
+| JSON形式不正、日付形式不正、enum不正、型不一致 | 400 |
+| パスパラメータ型不一致 | 400 |
+| 業務ルール違反 | 400 |
+| 更新対象の著者・書籍が存在しない | 404 |
+| 著者別書籍取得で指定著者が存在しない | 404 |
+
+## 実装上の判断
+
+- DBマイグレーションにはFlywayを利用しています。
+- DBアクセスにはjOOQを利用しています。
+- jOOQ生成コードは `build/generated-src/jooq/main` に出力し、Git管理対象外としています。
+- DB状態や複数項目に依存する業務ルールはService層で検証しています。
+- JSON形式不正、日付形式不正、enum不正、型不一致は `HttpMessageNotReadableException` として400に変換しています。
+- パスパラメータ型不一致は `MethodArgumentTypeMismatchException` として400に変換しています。
+- 書籍登録・更新と著者関連の登録・更新は同一トランザクションで処理しています。
+- `book_authors.author_id` にインデックスを付与し、著者別書籍取得時の検索を考慮しています。
+- 著者別書籍取得APIでは、一覧用途の `BookSummaryResponse` を使い、各書籍に著者一覧は含めません。
+
+## 対象外としたこと
+
+- 認証・認可
+- フロントエンド
+- 書籍削除API
+- 著者削除API
+- 書籍一覧API
+- 書籍詳細API
+- 著者詳細API
+- ページング・検索条件指定

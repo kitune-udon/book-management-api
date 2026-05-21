@@ -22,15 +22,15 @@
 
 | 優先順位 | テスト種別 | 内容 |
 |---:|---|---|
-| 1 | Service層テスト | 業務ルールの正常系・異常系を確認する |
-| 2 | Controller統合テスト | APIのHTTPステータス・レスポンスを確認する |
+| 1 | Controller統合テスト | APIのHTTPステータス・レスポンス、Validation、例外ハンドリングを確認する |
+| 2 | Service層テスト | 業務ルールの正常系・異常系を確認する |
 | 3 | リクエスト形式不正テスト | `HttpMessageNotReadableException` 系の入力不正が400になることを確認する |
 | 4 | Repositoryテスト | jOOQによる主要DBアクセスを確認する |
 
 ## 2.2 方針
 
-- 業務ルールはService層テストで重点的に確認する
-- APIとしての振る舞いはController統合テストで確認する
+- 提出前の自動テストでは、APIとしての振る舞いをController統合テストで優先確認する
+- 業務ルールはService層で実装し、Controller統合テストを通じて代表ケースを確認する
 - JSON形式不正・日付形式不正・enum不正・型不一致はController統合テストで確認する
 - リクエスト形式不正が `500 Internal Server Error` にならないことを確認する
 - Repositoryテストは余力があれば追加する
@@ -192,6 +192,9 @@
 
 <details>
 <summary>9. テストデータ方針</summary>
+
+以下のIDは説明用の例であり、自動テストでは固定IDに依存しない。
+Controller統合テストでは、テスト内でAPI経由で著者・書籍を作成し、作成レスポンスのIDを後続リクエストに利用する。
 
 ## 9.1 著者データ例
 

@@ -16,16 +16,16 @@
 
 | No | 区分 | ルール | エラー時ステータス | 実装場所 |
 |---:|---|---|---|---|
-| 1 | 著者 | 著者名は必須 | 400 | Bean Validation / Service |
-| 2 | 著者 | 著者名は空文字不可 | 400 | Bean Validation / Service |
-| 3 | 著者 | 生年月日は必須 | 400 | Bean Validation / Jackson |
+| 1 | 著者 | 著者名は必須 | 400 | Bean Validation / Jackson |
+| 2 | 著者 | 著者名は空文字不可 | 400 | Bean Validation |
+| 3 | 著者 | 生年月日は必須 | 400 | Jackson |
 | 4 | 著者 | 生年月日は現在日以前 | 400 | Service |
 | 5 | 著者 | 存在しない著者IDは更新不可 | 404 | Service |
-| 6 | 書籍 | 書籍名は必須 | 400 | Bean Validation / Service |
-| 7 | 書籍 | 書籍名は空文字不可 | 400 | Bean Validation / Service |
-| 8 | 書籍 | 価格は必須 | 400 | Bean Validation / Jackson |
-| 9 | 書籍 | 価格は0以上 | 400 | Bean Validation / Service / DB CHECK |
-| 10 | 書籍 | 出版状態は必須 | 400 | Bean Validation / Jackson |
+| 6 | 書籍 | 書籍名は必須 | 400 | Bean Validation / Jackson |
+| 7 | 書籍 | 書籍名は空文字不可 | 400 | Bean Validation |
+| 8 | 書籍 | 価格は必須 | 400 | Jackson |
+| 9 | 書籍 | 価格は0以上 | 400 | Bean Validation / DB CHECK |
+| 10 | 書籍 | 出版状態は必須 | 400 | Jackson |
 | 11 | 書籍 | 出版状態は定義値のみ | 400 | enum / DB CHECK / HttpMessageNotReadableException |
 | 12 | 書籍 | 書籍には1人以上の著者が必要 | 400 | Bean Validation / Service |
 | 13 | 書籍 | 存在しない著者IDは指定不可 | 400 | Service / FK |
@@ -64,15 +64,16 @@ APIで発生するエラーは、以下のように分類する。
 
 ## 3.3 DTO基本検証の方針
 
-Kotlinの非null型だけでは、未指定・null・空文字・空配列の扱いが曖昧になりやすいため、Request DTOにはBean Validationを利用する方針とする。
+Kotlinの非null型だけでは、空文字・空配列などの値として受け取れる不正を表現しきれないため、Request DTOには必要に応じてBean Validationを利用する方針とする。
+一方、`birthDate` や `publicationStatus` の未指定・null・形式不正・enum不正は、Kotlin非null型へのJackson変換時に発生する `HttpMessageNotReadableException` として扱い、共通例外ハンドラーで400に変換する。
 
 | 項目 | 検証内容 | 主な実装方法 |
 |---|---|---|
 | name | 必須、空文字不可 | `@NotBlank` |
-| birthDate | 必須 | `@NotNull` |
+| birthDate | 必須、日付形式 | Kotlin非null型 / Jackson変換 |
 | title | 必須、空文字不可 | `@NotBlank` |
 | price | 必須、0以上 | `@Min(0)` |
-| publicationStatus | 必須 | `@NotNull` |
+| publicationStatus | 必須、定義値のみ | Kotlin非null型 / enum変換 |
 | authorIds | 必須、1件以上 | `@NotEmpty` |
 
 Bean Validationエラーは `MethodArgumentNotValidException` として共通例外ハンドラーで `400 Bad Request` に変換する。

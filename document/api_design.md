@@ -471,7 +471,6 @@ data class CreateAuthorRequest(
     @field:NotBlank
     val name: String,
 
-    @field:NotNull
     val birthDate: LocalDate
 )
 
@@ -479,7 +478,6 @@ data class UpdateAuthorRequest(
     @field:NotBlank
     val name: String,
 
-    @field:NotNull
     val birthDate: LocalDate
 )
 
@@ -500,7 +498,6 @@ data class CreateBookRequest(
     @field:Min(0)
     val price: Int,
 
-    @field:NotNull
     val publicationStatus: PublicationStatus,
 
     @field:NotEmpty
@@ -514,7 +511,6 @@ data class UpdateBookRequest(
     @field:Min(0)
     val price: Int,
 
-    @field:NotNull
     val publicationStatus: PublicationStatus,
 
     @field:NotEmpty
