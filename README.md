@@ -148,11 +148,15 @@ Controller統合テストを中心に、APIとしてのHTTPステータス、レ
 |---|---|
 | `AuthorControllerTest` | 著者登録・更新、著者別書籍取得、著者APIの入力不正・404制御 |
 | `BookControllerTest` | 書籍登録・更新、著者関連の更新、多対多関連、出版状態の業務ルール、書籍APIの入力不正・404制御 |
+| `AuthorServiceTest` | 生年月日の業務ルールを固定Clockで確認 |
+| `BookServiceTest` | 著者ID重複、存在しない著者ID、出版状態遷移の業務ルールを確認 |
 
 主なテスト観点:
 
 - 正常に登録・更新・取得できること
+- 登録APIが `201 Created` と `Location` ヘッダーを返すこと
 - Validationエラーが400として返ること
+- 著者名・書籍名の最大長超過が400として返ること
 - 存在しない著者・書籍に対して404を返すこと
 - 書籍と著者の多対多関連を正しく登録・更新できること
 - 出版済み書籍を未出版へ戻せないこと
@@ -210,7 +214,7 @@ curl -i -X POST http://localhost:8080/authors \
   }'
 ```
 
-正常時は `201 Created` を返します。
+正常時は `201 Created` を返し、`Location: /authors/{id}` ヘッダーを設定します。
 
 ```json
 {
@@ -256,7 +260,7 @@ curl -i -X POST http://localhost:8080/books \
 ```
 
 `authorIds` には実在する著者IDを指定してください。
-正常時は `201 Created` を返します。
+正常時は `201 Created` を返し、`Location: /books/{id}` ヘッダーを設定します。
 
 ```json
 {

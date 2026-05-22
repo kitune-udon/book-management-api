@@ -9,6 +9,7 @@ import com.example.bookmanagement.jooq.tables.records.AuthorsRecord
 import com.example.bookmanagement.repository.AuthorRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.Clock
 import java.time.LocalDate
 
 /**
@@ -20,6 +21,7 @@ import java.time.LocalDate
 @Service
 class AuthorService(
 	private val authorRepository: AuthorRepository,
+	private val clock: Clock,
 ) {
 	/**
 	 * 著者を新規登録する。
@@ -64,7 +66,7 @@ class AuthorService(
 	 * 生年月日が現在日以前であることを検証する。
 	 */
 	private fun validateBirthDate(birthDate: LocalDate) {
-		if (birthDate.isAfter(LocalDate.now())) {
+		if (birthDate.isAfter(LocalDate.now(clock))) {
 			throw BusinessRuleViolationException(
 				"Author birth date must be today or past date",
 			)

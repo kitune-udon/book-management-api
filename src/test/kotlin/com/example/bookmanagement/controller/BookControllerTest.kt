@@ -1,7 +1,9 @@
 package com.example.bookmanagement.controller
 
 import org.hamcrest.Matchers.hasSize
+import org.hamcrest.Matchers.matchesPattern
 import org.junit.jupiter.api.Test
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.header
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 
@@ -35,6 +37,7 @@ class BookControllerTest : ControllerTestSupport() {
 			.andExpect(jsonPath("$.publicationStatus").value("PUBLISHED"))
 			.andExpect(jsonPath("$.authors", hasSize<Any>(1)))
 			.andExpect(jsonPath("$.authors[0].id").value(authorId))
+			.andExpect(header().string("Location", matchesPattern("/books/\\d+")))
 	}
 
 	@Test
@@ -632,6 +635,47 @@ class BookControllerTest : ControllerTestSupport() {
 		)
 			.andExpect(status().isBadRequest)
 			.andExpectErrorBody(400, "Invalid request body")
+	}
+
+	@Test
+	fun `B-31 書籍名が256文字を超える場合は登録できない`() {
+		val authorId = createAuthor()
+		val longTitle = "あ".repeat(256)
+
+		postJson(
+			"/books",
+			"""
+			{
+			  "title": "$longTitle",
+			  "price": 1200,
+			  "publicationStatus": "PUBLISHED",
+			  "authorIds": [$authorId]
+			}
+			""",
+		)
+			.andExpect(status().isBadRequest)
+			.andExpectErrorBody(400, "Book title must be 255 characters or less")
+	}
+
+	@Test
+	fun `B-32 書籍名が256文字を超える場合は更新できない`() {
+		val authorId = createAuthor()
+		val bookId = createBook(authorIds = listOf(authorId))
+		val longTitle = "あ".repeat(256)
+
+		putJson(
+			"/books/$bookId",
+			"""
+			{
+			  "title": "$longTitle",
+			  "price": 1200,
+			  "publicationStatus": "UNPUBLISHED",
+			  "authorIds": [$authorId]
+			}
+			""",
+		)
+			.andExpect(status().isBadRequest)
+			.andExpectErrorBody(400, "Book title must be 255 characters or less")
 	}
 
 }

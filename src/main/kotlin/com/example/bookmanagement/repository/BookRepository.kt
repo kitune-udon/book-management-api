@@ -101,7 +101,7 @@ class BookRepository(
 	}
 
 	/**
-	 * 指定された書籍に著者関連を登録する。
+	 * 指定された書籍に著者関連をまとめて登録する。
 	 */
 	fun insertBookAuthors(bookId: Long, authorIds: List<Long>) {
 		if (authorIds.isEmpty()) {
@@ -109,13 +109,13 @@ class BookRepository(
 		}
 
 		val now = LocalDateTime.now()
-
-		authorIds.forEach { authorId ->
+		val insertQueries = authorIds.map { authorId ->
 			dsl.insertInto(BOOK_AUTHORS)
 				.set(BOOK_AUTHORS.BOOK_ID, bookId)
 				.set(BOOK_AUTHORS.AUTHOR_ID, authorId)
 				.set(BOOK_AUTHORS.CREATED_AT, now)
-				.execute()
 		}
+
+		dsl.batch(insertQueries).execute()
 	}
 }

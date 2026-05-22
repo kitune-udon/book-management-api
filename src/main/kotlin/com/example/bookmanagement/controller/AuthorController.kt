@@ -7,7 +7,6 @@ import com.example.bookmanagement.dto.book.BookSummaryResponse
 import com.example.bookmanagement.service.AuthorService
 import com.example.bookmanagement.service.BookService
 import jakarta.validation.Valid
-import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -16,6 +15,7 @@ import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import java.net.URI
 
 /**
  * 著者に関するREST APIを提供するController。
@@ -36,9 +36,11 @@ class AuthorController(
 	fun create(
 		@Valid @RequestBody request: CreateAuthorRequest,
 	): ResponseEntity<AuthorResponse> {
+		val response = authorService.create(request)
+
 		return ResponseEntity
-			.status(HttpStatus.CREATED)
-			.body(authorService.create(request))
+			.created(URI.create("/authors/${response.id}"))
+			.body(response)
 	}
 
 	/**

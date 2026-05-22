@@ -1,8 +1,10 @@
 package com.example.bookmanagement.controller
 
 import org.hamcrest.Matchers.hasSize
+import org.hamcrest.Matchers.matchesPattern
 import org.junit.jupiter.api.Test
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.header
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import java.time.LocalDate
@@ -30,6 +32,7 @@ class AuthorControllerTest : ControllerTestSupport() {
 			.andExpect(jsonPath("$.id").exists())
 			.andExpect(jsonPath("$.name").value("夏目漱石"))
 			.andExpect(jsonPath("$.birthDate").value("1867-02-09"))
+			.andExpect(header().string("Location", matchesPattern("/authors/\\d+")))
 	}
 
 	@Test
@@ -232,6 +235,41 @@ class AuthorControllerTest : ControllerTestSupport() {
 		)
 			.andExpect(status().isBadRequest)
 			.andExpectErrorBody(400, "Invalid request body")
+	}
+
+	@Test
+	fun `A-15 著者名が256文字を超える場合は登録できない`() {
+		val longName = "あ".repeat(256)
+
+		postJson(
+			"/authors",
+			"""
+			{
+			  "name": "$longName",
+			  "birthDate": "1900-01-01"
+			}
+			""",
+		)
+			.andExpect(status().isBadRequest)
+			.andExpectErrorBody(400, "Author name must be 255 characters or less")
+	}
+
+	@Test
+	fun `A-16 著者名が256文字を超える場合は更新できない`() {
+		val authorId = createAuthor()
+		val longName = "あ".repeat(256)
+
+		putJson(
+			"/authors/$authorId",
+			"""
+			{
+			  "name": "$longName",
+			  "birthDate": "1900-01-01"
+			}
+			""",
+		)
+			.andExpect(status().isBadRequest)
+			.andExpectErrorBody(400, "Author name must be 255 characters or less")
 	}
 
 	@Test
