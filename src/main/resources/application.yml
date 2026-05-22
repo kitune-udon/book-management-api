@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: book-management-api
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/book_management
+    username: book_user
+    password: book_password
+    driver-class-name: org.postgresql.Driver
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+  jooq:
+    sql-dialect: postgres
+
+server:
+  port: 8080
