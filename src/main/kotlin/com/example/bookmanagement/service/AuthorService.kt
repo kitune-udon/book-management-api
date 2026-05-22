@@ -11,10 +11,21 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
 
+/**
+ * 著者に関する業務処理を担当するService。
+ *
+ * Controllerから受け取ったリクエストに対し、業務ルール検証とトランザクション境界を担い、
+ * DBアクセスはRepositoryへ委譲する。
+ */
 @Service
 class AuthorService(
 	private val authorRepository: AuthorRepository,
 ) {
+	/**
+	 * 著者を新規登録する。
+	 *
+	 * 著者名は前後空白を除去して保存し、生年月日が未来日でないことを検証する。
+	 */
 	@Transactional
 	fun create(request: CreateAuthorRequest): AuthorResponse {
 		validateBirthDate(request.birthDate)
@@ -27,6 +38,11 @@ class AuthorService(
 		return author.toResponse()
 	}
 
+	/**
+	 * 指定された著者IDの著者情報を更新する。
+	 *
+	 * 対象著者が存在しない場合は `NotFoundException` を投げる。
+	 */
 	@Transactional
 	fun update(authorId: Long, request: UpdateAuthorRequest): AuthorResponse {
 		validateBirthDate(request.birthDate)
@@ -44,6 +60,9 @@ class AuthorService(
 		return author.toResponse()
 	}
 
+	/**
+	 * 生年月日が現在日以前であることを検証する。
+	 */
 	private fun validateBirthDate(birthDate: LocalDate) {
 		if (birthDate.isAfter(LocalDate.now())) {
 			throw BusinessRuleViolationException(
@@ -52,6 +71,9 @@ class AuthorService(
 		}
 	}
 
+	/**
+	 * jOOQの著者レコードをAPIレスポンスDTOへ変換する。
+	 */
 	private fun AuthorsRecord.toResponse(): AuthorResponse {
 		return AuthorResponse(
 			id = id!!,

@@ -14,6 +14,12 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPat
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.transaction.annotation.Transactional
 
+/**
+ * Controller統合テストの共通基底クラス。
+ *
+ * Spring BootのテストコンテキストとMockMvcを共有し、JSONリクエスト送信やテストデータ作成の重複を抑える。
+ * 各テストで作成したDBデータはrollbackし、ローカルDBへテストデータが残らないようにする。
+ */
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
@@ -26,6 +32,9 @@ abstract class ControllerTestSupport {
 	@Autowired
 	protected lateinit var objectMapper: ObjectMapper
 
+	/**
+	 * JSONボディ付きのPOSTリクエストを送信する。
+	 */
 	protected fun postJson(
 		path: String,
 		content: String,
@@ -37,6 +46,9 @@ abstract class ControllerTestSupport {
 		)
 	}
 
+	/**
+	 * ボディなしのPOSTリクエストを送信する。
+	 */
 	protected fun postJsonWithoutBody(path: String): ResultActions {
 		return mockMvc.perform(
 			post(path)
@@ -44,6 +56,9 @@ abstract class ControllerTestSupport {
 		)
 	}
 
+	/**
+	 * JSONボディ付きのPUTリクエストを送信する。
+	 */
 	protected fun putJson(
 		path: String,
 		content: String,
@@ -55,6 +70,9 @@ abstract class ControllerTestSupport {
 		)
 	}
 
+	/**
+	 * 後続テストの前提データとして著者をAPI経由で作成し、作成されたIDを返す。
+	 */
 	protected fun createAuthor(
 		name: String = "テスト著者",
 		birthDate: String = "1900-01-01",
@@ -76,6 +94,9 @@ abstract class ControllerTestSupport {
 			.asLong()
 	}
 
+	/**
+	 * 後続テストの前提データとして書籍をAPI経由で作成し、作成されたIDを返す。
+	 */
 	protected fun createBook(
 		title: String = "テスト書籍",
 		price: Int = 1000,
@@ -101,6 +122,11 @@ abstract class ControllerTestSupport {
 			.asLong()
 	}
 
+	/**
+	 * 共通エラーレスポンスの本文を検証する。
+	 *
+	 * HTTPステータスそのものは各テストメソッド側で明示的に検証する。
+	 */
 	protected fun ResultActions.andExpectErrorBody(
 		status: Int,
 		message: String,

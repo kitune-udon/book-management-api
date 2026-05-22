@@ -8,10 +8,18 @@ import org.jooq.DSLContext
 import org.springframework.stereotype.Repository
 import java.time.LocalDateTime
 
+/**
+ * 書籍テーブルと書籍・著者中間テーブルへのDBアクセスを担当するRepository。
+ *
+ * 書籍本体の登録・更新・検索に加えて、書籍と著者の多対多関連の登録・削除も扱う。
+ */
 @Repository
 class BookRepository(
 	private val dsl: DSLContext,
 ) {
+	/**
+	 * 書籍を登録し、採番されたIDを含む登録後のレコードを返す。
+	 */
 	fun insert(
 		title: String,
 		price: Int,
@@ -29,12 +37,20 @@ class BookRepository(
 			.fetchOne()!!
 	}
 
+	/**
+	 * 書籍IDを指定して書籍レコードを1件取得する。
+	 */
 	fun findById(id: Long): BooksRecord? {
 		return dsl.selectFrom(BOOKS)
 			.where(BOOKS.ID.eq(id))
 			.fetchOne()
 	}
 
+	/**
+	 * 指定された著者に紐づく書籍一覧を取得する。
+	 *
+	 * 著者別書籍取得APIで利用するため、書籍ID昇順で返す。
+	 */
 	fun findBooksByAuthorId(authorId: Long): List<BooksRecord> {
 		return dsl.select(
 			BOOKS.ID,
@@ -52,6 +68,11 @@ class BookRepository(
 			.fetchInto(BooksRecord::class.java)
 	}
 
+	/**
+	 * 指定された書籍IDの書籍情報を更新し、更新後のレコードを返す。
+	 *
+	 * 対象が存在しない場合は `null` を返す。
+	 */
 	fun update(
 		id: Long,
 		title: String,
@@ -68,12 +89,20 @@ class BookRepository(
 			.fetchOne()
 	}
 
+	/**
+	 * 指定された書籍に紐づく著者関連を削除する。
+	 *
+	 * 書籍更新時に、現在の関連を入れ替えるために利用する。
+	 */
 	fun deleteBookAuthors(bookId: Long) {
 		dsl.deleteFrom(BOOK_AUTHORS)
 			.where(BOOK_AUTHORS.BOOK_ID.eq(bookId))
 			.execute()
 	}
 
+	/**
+	 * 指定された書籍に著者関連を登録する。
+	 */
 	fun insertBookAuthors(bookId: Long, authorIds: List<Long>) {
 		if (authorIds.isEmpty()) {
 			return

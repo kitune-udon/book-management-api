@@ -5,6 +5,12 @@ import org.junit.jupiter.api.Test
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 
+/**
+ * 書籍APIのController統合テスト。
+ *
+ * テストメソッド名の `B-xx` は `document/test_design.md` のテスト項番に対応する。
+ * 書籍登録・更新、著者関連、出版状態の業務ルール、リクエスト形式不正をAPI経由で確認する。
+ */
 class BookControllerTest : ControllerTestSupport() {
 
 	@Test

@@ -7,6 +7,12 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPat
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import java.time.LocalDate
 
+/**
+ * 著者APIと著者別書籍取得APIのController統合テスト。
+ *
+ * テストメソッド名の `A-xx` と `AB-xx` は `document/test_design.md` のテスト項番に対応する。
+ * MockMvcでHTTPリクエストを実行し、ステータスコード、レスポンス本文、例外ハンドリングを確認する。
+ */
 class AuthorControllerTest : ControllerTestSupport() {
 
 	@Test
