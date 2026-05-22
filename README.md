@@ -131,21 +131,6 @@ curl -i http://localhost:8080/health
 </details>
 
 <details>
-<summary>jOOQコード生成</summary>
-
-## jOOQコード生成
-
-```bash
-./gradlew generateJooq
-```
-
-jOOQ生成コードは `build/generated-src/jooq/main` に出力されます。
-このディレクトリはビルド時に生成するため、Git管理対象外です。
-クリーンなDBから生成する場合も、`generateJooq` 実行前にFlywayマイグレーションが自動で適用されます。
-
-</details>
-
-<details>
 <summary>テスト実行</summary>
 
 ## テスト実行
